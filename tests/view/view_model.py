@@ -71,6 +71,17 @@ class Protocol:
                              for r in sm.tables(sm.section(p, "### 6.2 Artifact mapping"))[0]}
         self.plan = {TICK.findall(r[0])[0]: (TICK.findall(r[1]), TICK.findall(r[2]))
                      for r in sm.tables(sm.section(p, "## 9. Section-level retrieval"))[0]}
+        self.reader_questions = [r[1] for r in sm.tables(sm.section(p, "### 13.1 Reader questions"))[0]]
+        metrics = sm.tables(sm.section(p, "### 13.2 Metrics"))
+        self.metrics = [r[0].strip("`") for r in metrics[0]]
+        self.local_sources = [r[0].strip("`") for r in metrics[1]]
+        self.domains = {r[0].strip("`"): TICK.findall(r[1]) for r in sm.tables(sm.section(p, "### 13.3 Navigation domains"))[0]}
+        self.edge_classes = {r[0].strip("`"): TICK.findall(r[1]) for r in sm.tables(sm.section(p, "### 13.4 Navigation order and semantic dependency"))[0]}
+        self.layers = {r[0]: (r[1], TICK.findall(r[2])) for r in sm.tables(sm.section(p, "### 13.5 Authority"))[0]}
+        self.l0_part = next(x for x in self.parts if x.startswith("L0 —"))
+        self.where_part = self.parts[0]
+        cb = (skill / "ula" / "CONTENT_BUILDER.md").read_text(encoding="utf-8").split("# 31. LOCAL MAP OUTPUT", 1)[1]
+        self.block_map_prefix = re.search(r"^# (.+) — \[PARENT BLOCK\]$", cb, re.M).group(1)
         p08 = (skill / "references" / "08_HUMAN_SYNC_STATE.md").read_text(encoding="utf-8")
         row = {r[0].strip("`"): r[1] for r in sm.tables(sm.section(p08, "## 11. Sync-only run loop"))[0]}[Path(self.path).name]
         self.sync_only_kinds = ["HS", "KN", "MAP", "DEBT", "MODEL", "INDEX"] if row == "YES" else re.findall(r"\b(HS|KN|MAP|DEBT|MODEL|INDEX)\b", row)
@@ -86,6 +97,7 @@ class Protocol:
         g = (t / "SEMANTIC_GRAPH_TEMPLATE.md").read_text(encoding="utf-8")
         self.node_cols = sm.header(sm.section(g, "## Nodes"))
         self.edge_cols = sm.header(sm.section(g, "## Edges"))
+        self.relation_types = next(TICK.findall(r[1]) for r in cells(sm.section(g, "## Field Reference")) if r[0] == "`relation_type`")
         self.debt_cols = sm.header(sm.section((t / "LEARNING_QUEUE_TEMPLATE.md").read_text(encoding="utf-8"), "## B. Knowledge Debt"))
 
     def int_rule(self, name):

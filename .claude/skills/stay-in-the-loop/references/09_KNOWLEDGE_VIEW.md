@@ -408,6 +408,98 @@ Mevcut project'te view yoksa ama içerik varsa (record, `ACTIVE` node, `OPEN` de
 
 ---
 
+## 13. Readability contract
+
+View'ın okunabilirlik ve navigation sözleşmesidir. Görünüş değil, okuyucunun yolunu bulma maliyeti ölçülür.
+Yeni bir presentation değişikliği bu sözleşmeye göre değerlendirilir. Gereksinim başka yerde yeniden tanımlanmaz.
+
+### 13.1 Reader questions
+
+| id | question |
+|---|---|
+| RQ-1 | Where am I? |
+| RQ-2 | What is this? |
+| RQ-3 | Why does it matter? |
+| RQ-4 | What came before? |
+| RQ-5 | What does this depend on? |
+| RQ-6 | Where is this used? |
+| RQ-7 | Where do I go next? |
+
+- Her HS ve KN section'ı bu soruları cevaplamaya hizmet eder. Cevap view'da yoksa bu bir navigation açığıdır, içerik hatası değil.
+
+### 13.2 Metrics
+
+| metric | meaning |
+|---|---|
+| `lines_total` | Dosyadaki bütün satırlar |
+| `lines_visible` | Varsayılan görünümde okunan boş olmayan satırlar: `<details>` dışı + `<summary>` satırı. Comment, anchor ve `<details>` tag'i sayılmaz. |
+| `lines_collapsed` | `<details>` içindeki boş olmayan satırlar |
+| `details_blocks` | `<details>` blok sayısı |
+| `details_max_depth` | En derin iç içe `<details>` seviyesi |
+| `hs_units` | HS section sayısı |
+| `kn_concepts` | KN section sayısı |
+| `graph_nodes` | Semantic Graph node sayısı |
+| `graph_edges` | Semantic Graph edge sayısı |
+| `graph_edges_by_relation` | Edge sayısı, `relation_type` başına |
+| `links_internal` | `](#anchor)` link sayısı |
+| `links_broken` | Hedef anchor'ı dosyada olmayan link sayısı |
+| `links_from_index` | INDEX section'ındaki link sayısı |
+| `links_from_hs` | HS section'larındaki link sayısı |
+| `links_from_kn` | KN section'larındaki link sayısı |
+| `kn_without_outgoing_link` | Hiç link taşımayan KN section sayısı |
+| `maps_global` | MAP section'ındaki map bloğu sayısı (her code fence) |
+| `maps_local_structured` | KN section'larındaki local map sayısı, render biçiminden bağımsız |
+| `maps_local_by_source` | `maps_local_structured`, kaynak başına: `BLOCK`, `CONCEPT_L0`, `GRAPH` |
+| `maps_local_mermaid` | KN section'larındaki Mermaid blok sayısı (yalnız render ölçüsü) |
+| `global_map_edges_by_kind` | Global map edge'leri: `HIERARCHY`, `NEXT`, `RELATION` |
+
+| source | local map |
+|---|---|
+| `CONCEPT_L0` | `L0 — Map` part'ı (§6.1, §6.2; `04` L0 — LOCAL MAP) |
+| `BLOCK` | `LOCAL MAP — <block>` başlığı (`ula/CONTENT_BUILDER.md` §31) |
+| `GRAPH` | Where am I? içindeki Mermaid local map (§7.2) |
+
+- Ölçüm read-only ve deterministiktir. Aynı dosya aynı sonucu verir. Mermaid satırları kaynak satır olarak sayılır.
+- Map, okuyucunun gördüğü map birimi olarak sayılır, render teknolojisi olarak değil. ASCII / text map de map'tir.
+- Var olan bir map'in biçimini değiştirmek (text → Mermaid) `maps_local_structured`'ı değiştirmez. Local map iyileşmesi yalnız `maps_local_structured` ile iddia edilir. `maps_local_mermaid` iyileşme ölçüsü değildir.
+
+### 13.3 Navigation domains
+
+| domain | sections | role |
+|---|---|---|
+| `HUMAN_SYNC` | `MODEL`, `HS` | Project comprehension: projede ne oldu |
+| `LEARNING` | `KN`, `MAP`, `DEBT` | Technical learning: reusable kavram |
+
+- İki domain ayrı navigation alanıdır. Bir HS section'ını okumak kavramı öğrenmek değildir (§3, `08` §1).
+- HS section KN section'a link verebilir. Ders metni domain'ler arasında kopyalanmaz (§11).
+
+### 13.4 Navigation order and semantic dependency
+
+| class | relations | meaning |
+|---|---|---|
+| `NAVIGATION` | `NEXT` | Okuma sırası. Bağımlılık değildir. |
+| `HIERARCHY` | `PART_OF` | Konum: kavram neyin parçası |
+| `SEMANTIC` | `REQUIRES`, `PRODUCES`, `CAUSES`, `USES`, `DEPENDS_ON`, `ALTERNATIVE_TO`, `COMPARED_WITH`, `EVIDENCE_FOR`, `FAILS_WHEN`, `IMPLEMENTED_BY` | Anlam ilişkisi |
+
+- Primary `parent_id` `HIERARCHY` sınıfındadır.
+- `NEXT` hiçbir zaman ön koşul veya bağımlılık olarak gösterilmez veya yorumlanmaz.
+- "What does this depend on?" (RQ-5) yalnız `SEMANTIC` edge'lerden cevaplanır.
+
+### 13.5 Authority
+
+| layer | authority | source |
+|---|---|---|
+| Authoritative state | AUTHORITATIVE | `state/`, `sync/HUMAN_SYNC_STATE.md` |
+| Human Sync records | AUTHORITATIVE | `sync/records/HS-*.md` |
+| ULA content | AUTHORITATIVE | `passes/<learning-pass-id>/ula/<event-id>/` |
+| Semantic Graph | AUTHORITATIVE | `maps/SEMANTIC_GRAPH.md` |
+| Markdown view | DERIVED | `STAY_IN_THE_LOOP.md` |
+
+- Readability değişikliği yalnız DERIVED katmanı değiştirir. Authority kuralı §1'dedir.
+- Her yeni human-facing öğe (harita, yön satırı, hatırlatma) authoritative state'ten türetilir ve rebuild ile yeniden üretilir. İkinci authority oluşmaz.
+
+---
+
 ## Authoritative Source
 
 - `08_HUMAN_SYNC_STATE.md` §1, §3, §4, §11.1, §12 (record, status, write sırası).

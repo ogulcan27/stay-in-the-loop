@@ -18,6 +18,7 @@ from harness import REPO as DEV_REPO, report, skill_dir, use  # noqa: E402
 use("sync", "view")
 import sync_model as sm  # noqa: E402
 import music_fixture as MF  # noqa: E402
+import readability as RB  # noqa: E402
 import view_model as vm  # noqa: E402
 from sync_model import Repo, wu  # noqa: E402
 from view_model import GRAPH_F, QUEUE_F, VIEW_F, Reader, View, ViewBlocked  # noqa: E402
@@ -690,5 +691,60 @@ s07 = (SKILL / "references" / "07_INTEGRITY_CHECKS.md").read_text(encoding="utf-
 check("O 07 §L.1 KNOWLEDGE_VIEW is DERIVED", bool(re.search(r"^\| `KNOWLEDGE_VIEW` \| DERIVED \|", s07, re.M)), True)
 check("O 07 §L.3 runs §V", "+ §V + §L checks" in s07, True)
 check("O view template has no per-level or HTML file target", re.findall(r"(?:L[0-4]\.md|\.html\b)", (SKILL / "templates" / "KNOWLEDGE_VIEW_TEMPLATE.md").read_text(encoding="utf-8")), [])
+
+# Test Q - readability baseline and rendering contract (09 §13)
+pq = project("pq")
+vq = View(P, pq.root)
+sync(pq, vq)
+light(pq, LIGHT_A, "Temporal Leakage", L_LIGHT)
+B2_MAP = "## LOCAL MAP — B2 Üretim Döngüsü\n\n```text\nB2.1 Başlangıç\n   ↓\nB2.2 Süre ve emission\n   ↓\nB2.3 Geçiş\n```\n\nDöngüde üç seçim vardır."
+B4_MAP = "## LOCAL MAP — B4 Süre Aileleri\n\n```text\nSüre PMF'i\n├── B4.1 Geometric\n└── B4.2 L2 PMF\n```\n\nİki aile aynı yüzeyi doldurur."
+full(pq, FULL_A, dict(L_FULL, **{"Local Map": f"{L_FULL['Local Map']}\n\nPencere ileri kayar.\n\n{B2_MAP}\n\n{B4_MAP}"}))
+write_graph(pq, 1, learning_graph(pq, extra=[node("KN-0000000c", "Walk-Forward", "CONCEPT", "KN-0000000a", "L1; L2; L3; L4",
+                                                  events="LE-LP-20261028-02-01", arts=FULL_A)]),
+            [edge("KE-0001", "KN-0000000b", "NEXT", "KN-0000000c"), edge("KE-0002", "KN-0000000c", "USES", "KN-0000000b")])
+vq.on_map_sync(None)
+q_files = lambda: {f.relative_to(pq.root).as_posix(): sha(f.read_bytes()) for f in sorted(pq.root.rglob("*")) if f.is_file() and ".git" not in f.parts}  # noqa: E731
+q0, qt, qg = q_files(), vtext(pq), (pq.root / GRAPH_F).read_text(encoding="utf-8")
+qm = RB.metrics(qt, qg, SKILL)
+check("Q baseline tool reports exactly the 09 §13.2 metrics", list(qm), P.metrics)
+check("Q baseline fixture structure", qm, {
+    "lines_total": 241, "lines_visible": 102, "lines_collapsed": 12, "details_blocks": 7, "details_max_depth": 1, "hs_units": 3, "kn_concepts": 2,
+    "graph_nodes": 4, "graph_edges": 2, "graph_edges_by_relation": "NEXT=1; USES=1", "links_internal": 11, "links_broken": 0,
+    "links_from_index": 7, "links_from_hs": 0, "links_from_kn": 4, "kn_without_outgoing_link": 0, "maps_global": 1,
+    "maps_local_structured": 4, "maps_local_by_source": "BLOCK=2; CONCEPT_L0=2; GRAPH=0", "maps_local_mermaid": 0,
+    "global_map_edges_by_kind": "HIERARCHY=3; NEXT=1"})
+check("Q local map sources = 09 §13.2 source table", [x.split("=")[0] for x in qm["maps_local_by_source"].split("; ")], sorted(P.local_sources))
+check("Q existing ASCII LOCAL MAP blocks (HSMM shape) are local maps", re.findall(r"^##### (LOCAL MAP — .+)$", qt, re.M),
+      ["LOCAL MAP — B2 Üretim Döngüsü", "LOCAL MAP — B4 Süre Aileleri"])
+as_mermaid = qt.replace("##### LOCAL MAP — B2 Üretim Döngüsü\n\n```text", "##### LOCAL MAP — B2 Üretim Döngüsü\n\n```mermaid", 1)
+qc = RB.metrics(as_mermaid, qg, SKILL)
+check("Q text -> Mermaid conversion is no local map gain", (qc["maps_local_structured"], qc["maps_local_by_source"], qc["maps_local_mermaid"]),
+      (4, "BLOCK=2; CONCEPT_L0=2; GRAPH=0", 1))
+without_b4 = re.sub(r"^##### LOCAL MAP — B4.*?İki aile aynı yüzeyi doldurur\.\n", "", qt, count=1, flags=re.M | re.S)
+check("Q removing a real local map lowers the count", (RB.metrics(without_b4, qg, SKILL)["maps_local_structured"],
+      RB.metrics(without_b4, qg, SKILL)["maps_local_by_source"]), (3, "BLOCK=1; CONCEPT_L0=2; GRAPH=0"))
+jm = RB.metrics(jt, (pj.root / GRAPH_F).read_text(encoding="utf-8"), SKILL)
+check("Q graph Mermaid local maps counted as GRAPH (Test J view)", (jm["maps_local_by_source"], jm["maps_local_mermaid"], jm["maps_local_structured"]),
+      (f"BLOCK=0; CONCEPT_L0={jm['kn_concepts']}; GRAPH=2", 2, jm["kn_concepts"] + 2))
+check("Q baseline deterministic", RB.metrics(qt, qg, SKILL), qm)
+check("Q baseline is read-only", q_files(), q0)
+check("Q visible + collapsed + blank + markup lines = total", qm["lines_visible"] + qm["lines_collapsed"] + sum(
+      not l.strip() or bool(RB.HIDDEN.match(l)) for l in qt.splitlines()), qm["lines_total"])
+broken = qt.replace("](#kn-0000000c)", "](#kn-0000000d)", 1)
+check("Q broken link counted", RB.metrics(broken, qg, SKILL)["links_broken"], 1)
+check("Q contract: seven reader questions", P.reader_questions, ["Where am I?", "What is this?", "Why does it matter?", "What came before?",
+      "What does this depend on?", "Where is this used?", "Where do I go next?"])
+content_kinds = [k for k in P.order if k not in ("VIEW", "INDEX")]
+check("Q contract: Human Sync and Learning are separate navigation domains",
+      (P.domains["HUMAN_SYNC"], P.domains["LEARNING"], sorted(P.domains["HUMAN_SYNC"] + P.domains["LEARNING"]) == sorted(content_kinds)),
+      (["MODEL", "HS"], ["KN", "MAP", "DEBT"], True))
+classes = [r for rs in P.edge_classes.values() for r in rs]
+check("Q contract: every graph relation has exactly one class", (sorted(classes), len(classes) == len(set(classes))), (sorted(P.relation_types), True))
+check("Q contract: NEXT is navigation only, never dependency", (P.edge_classes["NAVIGATION"], "NEXT" in P.edge_classes["SEMANTIC"]), (["NEXT"], False))
+check("Q contract: Markdown view is the only DERIVED layer", {k: v[0] for k, v in P.layers.items() if v[0] != "AUTHORITATIVE"},
+      {"Markdown view": "DERIVED"})
+check("Q contract: DERIVED layer is the 09 §1 view", P.layers["Markdown view"][1], [Path(P.path).name])
+check("Q view == rebuild (rendering unchanged by the contract)", qt, vq.rebuild())
 
 report(RESULTS)

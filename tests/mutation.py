@@ -116,6 +116,14 @@ MUTATIONS = [
      [(R09, r"^\| remember_max \| 5 \|$", "| remember_max | 14 |")], ["view"]),
     ("HUMAN-M7", "09 §3 model back to the agent-oriented Project Mental Model",
      [(R09, r"^(\| 3 \| `MODEL` \|) `## Project in 60 Seconds` \|", r"\1 `## Project Mental Model` |")], ["view"]),
+    ("VIS-M1", "09 §13.4 NEXT treated as a semantic dependency",
+     [(R09, r"^\| `SEMANTIC` \| `REQUIRES`, ", "| `SEMANTIC` | `NEXT`, `REQUIRES`, ")], ["view"]),
+    ("VIS-M2", "09 §13.5 Markdown view becomes authoritative",
+     [(R09, r"^\| Markdown view \| DERIVED \|", "| Markdown view | AUTHORITATIVE |")], ["view"]),
+    ("VIS-M3", "09 §13.2 broken-link metric dropped from the contract",
+     [(R09, r"^\| `links_broken` \|.*\n", "")], ["view"]),
+    ("VIS-M4", "09 §6.2 artifact local map no longer projected (real local maps removed from the view)",
+     [(R09, r"^\| L0 — Map \| `## L0 — Local Map` \| `# Local Map` \|\n", "")], ["view"]),
 ]
 
 
