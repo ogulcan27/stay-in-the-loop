@@ -89,7 +89,7 @@ STAY_IN_THE_LOOP.md (derived)  → human-facing projection
 | order | kind | heading | source |
 |---|---|---|---|
 | 1 | `VIEW` | `# Stay in the Loop — Project Knowledge` | config `project_id` |
-| 2 | `INDEX` | `## Quick Index` | HS + KN section listesi |
+| 2 | `INDEX` | `## Project Home` | HS + KN section listesi + context part'ları |
 | 3 | `MODEL` | `## Project in 60 Seconds` | `sync/PROJECT_SYNC_CONTEXT.md` |
 | 4 | `HS` | `## Human Sync` → `### <label>` | state + record |
 | 5 | `KN` | `## Learning` → `### <node-id> — <canonical_name>` | graph + ULA artifact |
@@ -101,7 +101,45 @@ STAY_IN_THE_LOOP.md (derived)  → human-facing projection
 - HS section'ları `seq` sırasıyla durur. KN section'ları graph `## Nodes` satır sırasıyla durur.
 - Yeni HS section bir sonraki HS section'ından veya `## Learning` satırından önce eklenir.
 - Yeni KN section bir sonraki KN section'ından veya `MAP` START marker'ından önce eklenir.
+- `DEBT` structural top-level destination'dır. View varken her zaman durur. `OPEN` debt yoksa gövde `Yok.` olur. Eksik `DEBT` section `MAP` END marker'ından sonra eklenir.
 - Human Sync ve Learning ayrı kalır. HS section'ı concept öğrenildi demek değildir (`08` §1).
+
+### 3.1 Project Home
+
+`INDEX` section'ı dosyanın giriş noktasıdır. Satır sırası sabittir:
+
+```text
+**Start here:** [Project in 60 Seconds] · [Current Position]
+**Human Sync** — HS section listesi
+**Learning** — KN section listesi
+**Knowledge Architecture:** [Knowledge Map]
+**Open Questions / Learning Debt:** [Open Questions] · [Open Learning Debt]
+```
+
+- `Current Position` yalnız MODEL `Where are we now?` part'ı varsa link alır. `Open Questions` yalnız `What is still unresolved?` part'ı varsa link alır.
+- Bu nedenle MODEL yazan her write INDEX'i de yazar (§10 sırası).
+- HS listesi `seq` sırasıdır. KN listesi §3 section sırasıdır. Liste boşsa `- Yok.` yazılır.
+- HS, MAP ve DEBT section'ı END marker'ından önceki son satırda Project Home'a döner: `[↑ Project Home](#project-home)`.
+- KN section'ı Project Home'a breadcrumb ile döner (§6.3).
+
+### 3.2 Anchors
+
+| anchor | target | source |
+|---|---|---|
+| `project-home` | `## Project Home` | heading |
+| `project-in-60-seconds` | `## Project in 60 Seconds` | heading |
+| `where-are-we-now` | `#### Where are we now?` | heading |
+| `what-is-still-unresolved` | `#### What is still unresolved?` | heading |
+| `knowledge-map` | `## Knowledge Map` | heading |
+| `open-learning-debt` | `## Open Learning Debt` | heading |
+| `hs-xxxxxxxx` | HS section | `<a id>` = lowercase `record_id` |
+| `kn-xxxxxxxx` | KN section | `<a id>` = lowercase `node_id` |
+
+- Heading anchor = GitHub heading slug: lowercase; harf, rakam, `-`, `_` ve boşluk dışındaki karakter silinir; boşluk `-` olur.
+- Navigation anchor'ı (bu tablo) dosyada en fazla bir kez üretilir. Başka heading veya `<a id>` aynı anchor'ı üretmez (V-16).
+- Hedefi olmayan anchor'a link verilmez. Boş MODEL part'ı anchor üretmez ve link almaz (§3.1).
+- Anchor deterministiktir. Label, ad veya içerik değişince değişmez. KN anchor'ı yalnız `node_id` (identity) değişince değişir.
+- Her internal link dosyada üretilen bir anchor'ı gösterir (V-01).
 
 ---
 
@@ -225,7 +263,7 @@ Bir graph node'u KN section alır, eğer `node_status: ACTIVE` ve `available_dep
 
 | part | kaynak | koşul |
 |---|---|---|
-| Where am I? | graph `parent_id` zinciri + `PART_OF` + `available_depth` + `source_event_ids` | Her zaman |
+| Where am I? | graph `parent_id` zinciri + `NEXT` + `PART_OF` + `available_depth` + `source_event_ids` | Her zaman |
 | Local Map | graph primary child'lar + node'un relation'ları | Primary child sayısı ≥ `local_map_min_children` |
 | L0 — Map | artifact L0 | Artifact'te doluysa |
 | L1 — Simple Mental Model | artifact L1 | `available_depth` içinde |
@@ -261,10 +299,41 @@ Bir graph node'u KN section alır, eğer `node_status: ACTIVE` ve `available_dep
 - İçerik aynen kopyalanır. Yalnız HTML comment'ler çıkar ve heading'ler kaydırılır: artifact part heading'i `####` olur, alt heading'ler buna göre iner (en fazla `######`).
 - Part boşsa (yalnız comment veya boşluk) gösterilmez.
 
-### 6.3 Breadcrumb
+Block-structured Full `CONTENT.md` (birden fazla block tek dosyada; `# LOCAL MAP — …`: `ula/CONTENT_BUILDER.md` §31):
 
-- Breadcrumb yalnız primary `parent_id` zincirinden üretilir (`05` §5.4). Bağımsız hiyerarşi yoktur.
-- Biçim: `ROOT → … → **<node>**`. Zincirdeki section'lı node link olur.
+| part | heading |
+|---|---|
+| L0 — Map | `# L0 — …`, ardından her `# LOCAL MAP — …` |
+| L1 — Simple Mental Model | her block'ta `## L1 — …` |
+| L2 — Mechanism | her block'ta `## L2 — …` |
+| L3 — Theory | her block'ta `## L3 — …` |
+| L4 — Formalism | her block'ta `## L4 — …` |
+| Retrieval | `# Retrieval Check` |
+| Reference | `# R — …` |
+
+- Block = altında `## L1 — …` – `## L4 — …` heading'i olan `#` heading'i. Dosyada `# L1 — …` yoksa ve block varsa bu tablo kullanılır.
+- Level part'ı her block'un o level gövdesini dosya sırasıyla toplar. Her gövde `##### <block heading>` altında durur. `## Lk — …` heading'inin adı gösterilmez; ad üstteki Full adından farklıysa (`NO L4 REQUIRED`) gövdenin ilk satırı `<ad>.` olur.
+- `# LOCAL MAP — …` L0'da `##### LOCAL MAP — …` olur.
+- Block'un `**Orientation.**` ve `**Transition.**` paragrafları gösterilmez (§6.1).
+- Tabloda olmayan `#` heading'i (başlık, Learning Integrity Check) gösterilmez.
+
+### 6.3 Breadcrumb and navigation
+
+Where am I? part'ı navigation satırları ile başlar:
+
+```text
+[Project Home](#project-home) → [Knowledge Map](#knowledge-map) → ROOT → … → **<node>**
+
+Parent: <parent>
+
+Reading order — Previous: <node> · Next: <node>
+```
+
+- Breadcrumb yalnız primary `parent_id` zincirinden üretilir (`05` §5.4). Bağımsız hiyerarşi yoktur. Zincirdeki section'lı node link olur.
+- `Parent:` primary `parent_id` node'udur (conceptual parent). Section'ı varsa link olur. `parent_id` `-` ise `Parent: Yok.`
+- `Reading order` yalnız `NEXT` edge'lerinden türer (`05` §3 PREVIOUS / NEXT). Previous = gelen `NEXT` kaynakları. Next = çıkan `NEXT` hedefleri.
+- `SUPERSEDED` node reading order'da gösterilmez. Birden fazla node `, ` ile ayrılır. Taraf yoksa yazılmaz. İki taraf da yoksa satır yoktur.
+- Reading order okuma sırasıdır, bağımlılık değildir (§13.4). Satır ön koşul veya dependency dili taşımaz.
 - Secondary `PART_OF` üyelikleri ayrı satırda: `Also part of:`.
 
 ### 6.4 Related Concepts
@@ -313,7 +382,7 @@ GLOBAL MAP (depth 1–2) → KN section → LOCAL MAP (children) → child KN se
 |---|---|
 | Human Sync record write (`08` §11.1, `08` §12) | HS (yeni / refresh), MODEL, INDEX |
 | Staleness state write (`08` §6, §6.1) | HS (status line), MODEL, INDEX |
-| Map sync graph write (`05` §8) | KN (yeni / değişen depth / rename), parent KN (local map), MAP, INDEX |
+| Map sync graph write (`05` §8) | KN (yeni / değişen depth / rename / navigation komşusu), parent KN (local map), MAP, INDEX |
 | Queue §B debt write (`03` §17, `06` §20) | DEBT |
 | Derived repair (`07` §L.3) | Yalnız V check'in gösterdiği section'lar |
 

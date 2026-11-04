@@ -21,8 +21,7 @@ HEAD_MARK = re.compile(r"^<!-- SITL:VIEW project_id=(\S+) -->$")
 HEADING = re.compile(r"^(#{1,6}) (.*)$")
 TITLE = "# Stay in the Loop — Project Knowledge"
 NOTE = "> Derived human-facing view. Authority: `docs/learning/` state. Elle düzenleme. Rules: `09_KNOWLEDGE_VIEW`."
-FIXED = {"knowledge-map", "open-learning-debt"}
-TERM = re.compile(r'^"(.+?)"\s*↔\s*(.+)$')
+TERM =re.compile(r'^"(.+?)"\s*↔\s*(.+)$')
 SYMBOL = re.compile(r"(?<![\w-])(?:[A-Z]{1,5}-[A-Z0-9]{1,6}|[A-Z]\([A-Za-z]\)|[B-HJ-Z])(?![\w(-])")
 
 
@@ -51,6 +50,31 @@ def cells(block):
     return [r for t in sm.tables(block) for r in t]
 
 
+def slug(heading):
+    """09 §3.2: GitHub heading slug."""
+    text = re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", heading).lower()
+    return re.sub(r"[^\w\- ]", "", text).replace(" ", "-")
+
+
+def anchors_of(text):
+    """Every anchor the rendered file produces, in order: explicit <a id> and heading slugs (fence-aware)."""
+    out, fence = [], False
+    for line in text.splitlines():
+        if line.startswith("```"):
+            fence = not fence
+        if fence:
+            continue
+        out += re.findall(r'<a id="([^"]+)"></a>', line)
+        m = HEADING.match(line)
+        if m:
+            out.append(slug(m.group(2)))
+    return out
+
+
+def link_targets(text):
+    return re.findall(r"\]\(#([^)]+)\)", text)
+
+
 class Protocol:
     def __init__(self, skill: Path):
         p = (skill / "references" / "09_KNOWLEDGE_VIEW.md").read_text(encoding="utf-8")
@@ -60,15 +84,23 @@ class Protocol:
         self.collapsed = [x.strip() for x in self.rules["collapsed"].split(";")]
         structure = sm.tables(sm.section(p, "## 3. Structure"))[0]
         self.order = [TICK.findall(r[1])[0] for r in structure]
-        self.model_heading = next(TICK.findall(r[2])[0] for r in structure if "MODEL" in r[1])
+        self.heading = {TICK.findall(r[1])[0]: TICK.findall(r[2])[0] for r in structure}
+        self.model_heading = self.heading["MODEL"]
+        self.anchor_rows = [(TICK.findall(r[0])[0], r[1].strip("`"), r[2]) for r in sm.tables(sm.section(p, "### 3.2 Anchors"))[0]]
+        self.anchor = {target: a for a, target, src in self.anchor_rows if src == "heading"}
         hs = sm.tables(sm.section(p, "### 5.1 Parts"))
         self.hs_map = [(r[0].strip("`"), r[1], r[2]) for r in hs[0]]
         self.status_line = {TICK.findall(r[0])[0]: TICK.findall(r[1])[0] for r in hs[1]}
         self.model_map = [tuple(r) for r in sm.tables(sm.section(p, "### 5.3 Project in 60 Seconds"))[0]]
         self.parts = [r[0] for r in sm.tables(sm.section(p, "### 6.1 Parts"))[0]]
         heading = lambda c: TICK.findall(c)[0].lstrip("# ") if "`" in c else None  # noqa: E731
-        self.artifact_map = {r[0]: {"LIGHT": heading(r[1]), "FULL": heading(r[2])}
-                             for r in sm.tables(sm.section(p, "### 6.2 Artifact mapping"))[0]}
+        mapping = sm.tables(sm.section(p, "### 6.2 Artifact mapping"))
+        self.artifact_map = {r[0]: {"LIGHT": heading(r[1]), "FULL": heading(r[2])} for r in mapping[0]}
+        pattern = lambda c: (len(c) - len(c.lstrip("#")), re.compile(re.escape(c.lstrip("# ")).replace("…", ".+") + "$"))  # noqa: E731
+        self.block_map = {r[0]: [pattern(c) for c in TICK.findall(r[1])] for r in mapping[1]}
+        skip = re.search(r"^- Block'un (.+) paragrafları gösterilmez", sm.section(p, "### 6.2 Artifact mapping"), re.M)
+        self.block_skip = [re.escape(w) for w in TICK.findall(skip.group(1))] if skip else []
+        self.debt_structural = bool(re.search(r"^- `DEBT` structural top-level destination", sm.section(p, "## 3. Structure"), re.M))
         self.plan = {TICK.findall(r[0])[0]: (TICK.findall(r[1]), TICK.findall(r[2]))
                      for r in sm.tables(sm.section(p, "## 9. Section-level retrieval"))[0]}
         self.reader_questions = [r[1] for r in sm.tables(sm.section(p, "### 13.1 Reader questions"))[0]]
@@ -102,6 +134,13 @@ class Protocol:
 
     def int_rule(self, name):
         return int(self.rules[name])
+
+    def href(self, heading):
+        """'#anchor' of a fixed heading (09 §3.2)."""
+        return "#" + self.anchor[heading]
+
+    def home_link(self):
+        return f"[↑ Project Home]({self.href(self.heading['INDEX'])})"
 
 
 # --- authoritative sources ------------------------------------------------------------
@@ -269,7 +308,7 @@ class View:
                f"**Status:** {self.P.status_line[row['sync_status']]}"]
         out += [x for p in layers["HUMAN"] for x in ("", p)]
         out += ["", "<details>", "<summary><strong>Technical Trace</strong></summary>"] + [x for p in layers["TRACE"] for x in ("", p)] + ["", "</details>"]
-        return "\n".join(out + [f"<!-- SITL:HS:{rid}:END -->"])
+        return "\n".join(out + ["", self.P.home_link(), f"<!-- SITL:HS:{rid}:END -->"])
 
     def artifact_parts(self, node, rd):
         """Per part: body from the last COMPLETE source artifact that carries it (09 §6.2)."""
@@ -283,11 +322,39 @@ class View:
                 continue
             level = 1 if mode == "FULL" else 2
             src = parts_of(text, level)
+            if mode == "FULL" and self.P.artifact_map["L1 — Simple Mental Model"]["FULL"] not in src and self.blocks_of(src):
+                found.update({part: (body, path) for part, body in self.block_parts(src).items() if body})
+                continue
             for part, m in self.P.artifact_map.items():
                 body = re.sub(r"\n*-{3,}\s*$", "", strip_comments(src.get(m[mode] or "\0", "")).strip())
                 if body:
                     found[part] = (shift(body, 4 - level), path)
         return found
+
+    def blocks_of(self, tops):
+        """09 §6.2: {block heading: {level heading: body}} for `#` headings that carry `## L1 — …` – `## L4 — …`."""
+        levels = [rx for part, pats in self.P.block_map.items() for d, rx in pats if d == 2]
+        subs = {h: parts_of(b, 2) for h, b in tops.items()}
+        return {h: s for h, s in subs.items() if any(rx.match(k) for k in s for rx in levels)}
+
+    def block_parts(self, tops):
+        """09 §6.2 block-structured Full CONTENT.md: level parts gathered per block under `##### <block heading>`."""
+        skip = re.compile(rf"^(?:{'|'.join(self.P.block_skip)}).*(?:\n.+)*\n?", re.M) if self.P.block_skip else None
+        clean = lambda b: re.sub(r"\n*-{3,}\s*$", "", (skip.sub("", strip_comments(b)) if skip else strip_comments(b)).strip())  # noqa: E731
+        blocks, out = self.blocks_of(tops), {}
+        for part, pats in self.P.block_map.items():
+            chunks = []
+            for i, (depth, rx) in enumerate(pats):
+                if depth == 2:
+                    std = self.P.artifact_map[part]["FULL"]
+                    note = lambda k: "" if k == std else f"{k.split(' — ', 1)[1]}.\n\n"  # noqa: E731
+                    chunks += [f"##### {h}\n\n{note(k)}{shift(clean(b), 3)}" for h, s in blocks.items() for k, b in s.items() if rx.match(k) and clean(b)]
+                elif i == 0:
+                    chunks += [shift(clean(b), 3) for h, b in tops.items() if rx.match(h) and clean(b)]
+                else:
+                    chunks += [f"##### {h}\n\n{shift(clean(b), 4)}" for h, b in tops.items() if rx.match(h) and clean(b)]
+            out[part] = "\n\n".join(chunks)
+        return out
 
     def chain(self, S, node):
         by = {n["node_id"]: n for n in S["nodes"]}
@@ -319,13 +386,35 @@ class View:
                 lines.append(f'    {mermaid_id(node["node_id"])} -- {e["relation_type"]} --> {mermaid_id(t["node_id"])}["{label(self.P, t)}"]')
         return "\n".join(lines + ["```"])
 
+    def reading_order(self, S, node):
+        """09 §6.3: Previous = incoming NAVIGATION (§13.4: NEXT) sources, Next = outgoing targets; SUPERSEDED hidden."""
+        by = {n["node_id"]: n for n in S["nodes"]}
+        ok = lambda i: i in by and by[i]["node_status"] != "SUPERSEDED"  # noqa: E731
+        nav = [e for e in S["edges"] if e["relation_type"] in self.P.edge_classes["NAVIGATION"]]
+        nid = node["node_id"]
+        prev = [by[e["source_node_id"]] for e in nav if e["target_node_id"] == nid and ok(e["source_node_id"])]
+        nxt = [by[e["target_node_id"]] for e in nav if e["source_node_id"] == nid and ok(e["target_node_id"])]
+        return prev, nxt
+
+    def navigation(self, S, node):
+        """09 §6.3: breadcrumb (Home → Map → parent_id chain), conceptual parent, reading order."""
+        chain = self.chain(S, node)
+        home = f"[Project Home]({self.P.href(self.P.heading['INDEX'])})"
+        kmap = f"[Knowledge Map]({self.P.href(self.P.heading['MAP'])})"
+        crumbs = [home, kmap] + [self.link(S, n) if n is not node else f"**{n['canonical_name']}**" for n in chain]
+        out = [" → ".join(crumbs), "", f"Parent: {self.link(S, chain[-2]) if len(chain) > 1 else 'Yok.'}"]
+        prev, nxt = self.reading_order(S, node)
+        sides = [f"{side}: " + ", ".join(self.link(S, n) for n in ns) for side, ns in (("Previous", prev), ("Next", nxt)) if ns]
+        if sides:
+            out += ["", "Reading order — " + " · ".join(sides)]
+        return "\n".join(out)
+
     def render_kn(self, S, node, rd):
         by = {n["node_id"]: n for n in S["nodes"]}
         nid, depth = node["node_id"], depth_list(node["available_depth"])
         parts = self.artifact_parts(node, rd)
-        crumbs = [self.link(S, n) if n is not node else f"**{n['canonical_name']}**" for n in self.chain(S, node)]
         out = [f"<!-- SITL:KN:{nid}:START depth={';'.join(depth)} -->", f'<a id="{nid.lower()}"></a>', f"### {nid} — {node['canonical_name']}",
-               "", "#### Where am I?", "", " → ".join(crumbs)]
+               "", "#### Where am I?", "", self.navigation(S, node)]
         also = [by[e["target_node_id"]] for e in S["edges"] if e["source_node_id"] == nid and e["relation_type"] == "PART_OF" and e["target_node_id"] in by]
         if also:
             out += ["", "Also part of: " + ", ".join(self.link(S, n) for n in also)]
@@ -369,7 +458,7 @@ class View:
                 frontier += [(k, d + 1) for k in self.children(S, n)]
         lines = ["<!-- SITL:MAP:START -->", "## Knowledge Map", ""]
         if not shown:
-            return "\n".join(lines + ["Yok.", "<!-- SITL:MAP:END -->"])
+            return "\n".join(lines + ["Yok.", "", self.P.home_link(), "<!-- SITL:MAP:END -->"])
         lines += ["```mermaid", "flowchart LR"]
         for n in shown.values():
             lines.append(f'    {mermaid_id(n["node_id"])}["{label(self.P, n)}"]')
@@ -379,18 +468,25 @@ class View:
         for e in S["edges"]:
             if e["relation_type"] == "NEXT" and e["source_node_id"] in shown and e["target_node_id"] in shown:
                 lines.append(f'    {mermaid_id(e["source_node_id"])} -. NEXT .-> {mermaid_id(e["target_node_id"])}')
-        return "\n".join(lines + ["```", "<!-- SITL:MAP:END -->"])
+        return "\n".join(lines + ["```", "", self.P.home_link(), "<!-- SITL:MAP:END -->"])
 
-    def render_index(self, S):
+    def render_index(self, S, rd):
+        """09 §3.1 Project Home: entry point; Current Position / Open Questions link only to MODEL parts that exist."""
+        P, shown = self.P, {k for k in self.model_layers(rd)["HUMAN_VIEWS"]}
+        part = lambda name, view: f"[{name}]({P.href('#### ' + view)})" if view in shown else name  # noqa: E731
         hs = [f"- [{r['label']}](#{r['record_id'].lower()})" + (" · needs refresh" if r["sync_status"] == "STALE" else "") for r in self.hs_rows(S)]
         kn = [f"- [{n['node_id']} — {n['canonical_name']}](#{n['node_id'].lower()}) · {' '.join(depth_list(n['available_depth']))}"
               for n in self.kn_nodes(S)]
-        return "\n".join(["<!-- SITL:INDEX:START -->", "## Quick Index", "", "**Human Sync** — project comprehension", ""] + (hs or ["- Yok."])
+        start = f"**Start here:** [Project in 60 Seconds]({P.href(P.heading['MODEL'])}) · {part('Current Position', 'Where are we now?')}"
+        arch = f"**Knowledge Architecture:** [Knowledge Map]({P.href(P.heading['MAP'])})"
+        debt = (f"**Open Questions / Learning Debt:** {part('Open Questions', 'What is still unresolved?')} · "
+                f"[Open Learning Debt]({P.href(P.heading['DEBT'])})")
+        return "\n".join(["<!-- SITL:INDEX:START -->", P.heading["INDEX"], "", start, "", "**Human Sync** — project comprehension", ""] + (hs or ["- Yok."])
                          + ["", "**Learning** — technical learning. Human Sync ≠ learned.", ""] + (kn or ["- Yok."])
-                         + ["", "[Knowledge Map](#knowledge-map) · [Open Learning Debt](#open-learning-debt)", "<!-- SITL:INDEX:END -->"])
+                         + ["", arch, "", debt, "<!-- SITL:INDEX:END -->"])
 
-    def render_model(self, rd):
-        """09 §5.3: Project in 60 Seconds; snapshot collapsed; remembered items are not repeated in the snapshot."""
+    def model_layers(self, rd):
+        """09 §5.3 parts per layer; HUMAN_VIEWS lists the shown HUMAN part names."""
         rd.read("CONTEXT")
         ctx = parts_of(self.read_file(sm.CONTEXT_F) or "", 2)
         text = {k: shift(v, 2).strip() for k, v in ctx.items()}
@@ -398,7 +494,7 @@ class View:
         pooled = [k.strip() for k in remember.split(";")]
         pool = [(k, l) for k in pooled for l in text.get(k, "").splitlines() if l.startswith("- ")]
         used = pool[: self.P.int_rule("remember_max")]
-        layers = {"HUMAN": [], "SNAPSHOT": []}
+        layers = {"HUMAN": [], "SNAPSHOT": [], "HUMAN_VIEWS": []}
         for view, src, layer in self.P.model_map:
             if src == remember:
                 body = "\n".join(l for _, l in used)
@@ -408,6 +504,13 @@ class View:
                 body = text.get(src, "")
             if body:
                 layers[layer].append(f"#### {view}\n\n{body}")
+                if layer == "HUMAN":
+                    layers["HUMAN_VIEWS"].append(view)
+        return layers
+
+    def render_model(self, rd):
+        """09 §5.3: Project in 60 Seconds; snapshot collapsed; remembered items are not repeated in the snapshot."""
+        layers = self.model_layers(rd)
         out = [x for p in layers["HUMAN"] for x in ("", p)]
         if layers["SNAPSHOT"]:
             out += ["", "<details>", "<summary><strong>Technical Project Snapshot</strong></summary>"] + \
@@ -416,14 +519,14 @@ class View:
 
     def render_debt(self, S):
         rows = [f"- `{d['debt_id']}` — {d['concept']} · {d['priority']} · {d['work_unit_ids']}" for d in S["debts"] if d["debt_status"] == "OPEN"]
-        return "\n".join(["<!-- SITL:DEBT:START -->", "## Open Learning Debt", ""] + (rows or ["Yok."]) + ["<!-- SITL:DEBT:END -->"])
+        return "\n".join(["<!-- SITL:DEBT:START -->", "## Open Learning Debt", ""] + (rows or ["Yok."]) + ["", self.P.home_link(), "<!-- SITL:DEBT:END -->"])
 
     def block(self, S, key, rd):
         if key.startswith("HS:"):
             return self.render_hs(S, next(r for r in S["rows"] if r["record_id"] == key[3:]), rd)
         if key.startswith("KN:"):
             return self.render_kn(S, next(n for n in S["nodes"] if n["node_id"] == key[3:]), rd)
-        return {"MAP": lambda: self.render_map(S), "INDEX": lambda: self.render_index(S), "DEBT": lambda: self.render_debt(S),
+        return {"MAP": lambda: self.render_map(S), "INDEX": lambda: self.render_index(S, rd), "DEBT": lambda: self.render_debt(S),
                 "MODEL": lambda: self.render_model(rd)}[key]()
 
     def rebuild(self, rd=None):
@@ -432,7 +535,7 @@ class View:
         rd.read("WHOLE_REBUILD")
         hs = [self.render_hs(S, r, rd) for r in self.hs_rows(S)]
         kn = [self.render_kn(S, n, rd) for n in self.kn_nodes(S)]
-        parts = [TITLE, "", f"<!-- SITL:VIEW project_id={S['project_id']} -->", "", NOTE, "", self.render_index(S), "", self.render_model(rd), "",
+        parts = [TITLE, "", f"<!-- SITL:VIEW project_id={S['project_id']} -->", "", NOTE, "", self.render_index(S, rd), "", self.render_model(rd), "",
                  "## Human Sync", ""] + [x for b in hs for x in (b, "")] + ["## Learning", ""] + [x for b in kn for x in (b, "")] + \
                 [self.render_map(S), "", self.render_debt(S)]
         return "\n".join(parts) + "\n"
@@ -497,6 +600,9 @@ class View:
         if key in spans:
             s, e, _ = spans[key]
             lines[s: e + 1] = block.splitlines()
+        elif key == "DEBT":
+            at = spans["MAP"][1] + 1
+            lines[at:at] = [""] + block.splitlines()
         else:
             at = self.insertion_line(text, key, spans, S)
             lines[at:at] = block.splitlines() + [""]
@@ -530,6 +636,8 @@ class View:
         spans, steps, text = self.spans(cur), [], cur
         if sync_only:
             keys = [k for k in keys if k.split(":")[0] in self.P.sync_only_kinds]
+        if "MODEL" in keys:
+            keys = keys + ["INDEX"]
         for key in self.order_keys(keys):
             exists = key in spans
             if exists:
@@ -588,8 +696,9 @@ class View:
 
     def node_sig(self, S, n):
         by = {x["node_id"]: x for x in S["nodes"]}
-        rel = [(e["source_node_id"], e["relation_type"], e["target_node_id"], by.get(e["source_node_id"], {}).get("canonical_name"),
-                by.get(e["target_node_id"], {}).get("canonical_name")) for e in S["edges"] if n["node_id"] in (e["source_node_id"], e["target_node_id"])]
+        end = lambda i: tuple(by.get(i, {}).get(c) for c in ("canonical_name", "node_status", "available_depth"))  # noqa: E731
+        rel = [(e["source_node_id"], e["relation_type"], e["target_node_id"], end(e["source_node_id"]), end(e["target_node_id"]))
+               for e in S["edges"] if n["node_id"] in (e["source_node_id"], e["target_node_id"])]
         kids = [(k["node_id"], k["canonical_name"], k["node_status"]) for k in self.children(S, n)]
         crumbs = [(c["node_id"], c["canonical_name"], c["node_status"], c["available_depth"]) for c in self.chain(S, n)]
         return (n["canonical_name"], n["available_depth"], n["node_status"], n["source_artifacts"], n["source_event_ids"], rel, kids, crumbs)
@@ -665,7 +774,12 @@ class View:
             return sorted(set(found))
         rows = {r["record_id"]: r for r in S["rows"] if r["record_id"] != "-"}
         nodes = {n["node_id"]: n for n in S["nodes"]}
-        anchors = set(FIXED)
+        made = anchors_of(text)
+        nav = set(self.P.anchor.values()) | {s[3:].lower() for s in spans if s[:3] in ("HS:", "KN:")}
+        if any(made.count(a) > 1 for a in nav):
+            add("V-16")
+        for key in self.nav_stale(text, spans, S):
+            add("V-17")
         for key, span in spans.items():
             body = self.lines_of(text, span)
             kind, kid = (key.split(":") + [None])[:2]
@@ -684,7 +798,6 @@ class View:
                 add("V-10")
             if kind in ("HS", "KN"):
                 a = re.search(r'<a id="([^"]+)"></a>', body)
-                anchors.add(a.group(1) if a else "")
                 if kind == "KN":
                     title = top[0][1] if top else ""
                     if not a or a.group(1) != kid.lower() or not title.startswith(f"{kid} — ") or kid not in nodes:
@@ -718,16 +831,35 @@ class View:
                     if not n or len(lab.split(" (KN-")[0].replace(" (DEBT)", "")) > self.P.int_rule("map_label_max_chars"):
                         add("V-14")
         if not structural_only:
-            if "INDEX" in spans:
-                for link in re.findall(r"\]\(#([^)]+)\)", self.lines_of(text, spans["INDEX"])):
-                    if link not in anchors:
-                        add("V-01")
-            want = {f"HS:{r['record_id']}" for r in self.hs_rows(S)} | {f"KN:{n['node_id']}" for n in self.kn_nodes(S)}
-            if want - set(spans):
+            if self.broken_link_keys(text, spans):
+                add("V-01")
+            want ={f"HS:{r['record_id']}" for r in self.hs_rows(S)} | {f"KN:{n['node_id']}" for n in self.kn_nodes(S)}
+            if want - set(spans) or (self.P.debt_structural and "DEBT" not in spans):
                 add("V-08")
         else:
             found = [(c, s) for c, s in found if s == "FAIL"]
         return sorted(set(found))
+
+    def nav_stale(self, text, spans, S):
+        """07 V-17: sections whose navigation differs from the graph or 09 §3.1 / §6.3."""
+        nodes, out = {n["node_id"]: n for n in S["nodes"]}, []
+        for key, span in spans.items():
+            body = self.lines_of(text, span)
+            if key.startswith("KN:"):
+                n = nodes.get(key[3:])
+                if n and f"#### Where am I?\n\n{self.navigation(S, n)}\n\n" not in body:
+                    out.append(key)
+            elif key.split(":")[0] in ("HS", "MAP", "DEBT") and body.splitlines()[-2] != self.P.home_link():
+                out.append(key)
+        return out
+
+    def broken_link_keys(self, text, spans):
+        """07 V-01: sections with an internal link to an anchor the file does not produce (GitHub -1, -2 suffixes included)."""
+        made, seen = set(), {}
+        for a in anchors_of(text):
+            made.add(f"{a}-{seen[a]}" if a in seen else a)
+            seen[a] = seen.get(a, 0) + 1
+        return [k for k, s in spans.items() if set(link_targets(self.lines_of(text, s))) - made]
 
     def repair(self, rd=None):
         """07 §L.3 derived repair for §V WARNINGs: only the sections the checks point to."""
@@ -736,14 +868,14 @@ class View:
         found = self.integrity(text, S)
         if any(s == "FAIL" for _, s in found):
             return found, "FAIL"
-        if not [c for c, _ in found if c != "V-15"]:
+        if not [c for c, _ in found if c not in ("V-15", "V-16")]:
             return found, "NOTHING"
         if text is None:
             self.update([], rd)
             return found, "REBUILT"
         spans = self.spans(text)
         want = [f"HS:{r['record_id']}" for r in self.hs_rows(S)] + [f"KN:{n['node_id']}" for n in self.kn_nodes(S)]
-        keys = [k for k in want if k not in spans]
+        keys = [k for k in want + ["DEBT"] * self.P.debt_structural if k not in spans]
         for k in want:
             if k in spans:
                 cur = self.lines_of(text, spans[k])
@@ -755,6 +887,7 @@ class View:
                     n = next(x for x in S["nodes"] if x["node_id"] == k[3:])
                     if spans[k][2].get("depth") != ";".join(depth_list(n["available_depth"])) or f"### {n['node_id']} — {n['canonical_name']}\n" not in cur + "\n":
                         keys.append(k)
+        keys += self.nav_stale(text, spans, S) + self.broken_link_keys(text, spans)
         self.update(keys + ["MAP", "INDEX"], rd)
         return found, "REPAIRED"
 

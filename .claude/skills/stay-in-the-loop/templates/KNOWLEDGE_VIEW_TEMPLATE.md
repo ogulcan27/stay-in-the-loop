@@ -8,7 +8,9 @@
 > Rules: `references/09_KNOWLEDGE_VIEW.md`. Yalnız içerik oluşunca oluşturulur (§2).
 
 <!-- SITL:INDEX:START -->
-## Quick Index
+## Project Home
+
+**Start here:** [Project in 60 Seconds](#project-in-60-seconds) · [Current Position](#where-are-we-now)
 
 **Human Sync** — project comprehension
 
@@ -19,7 +21,9 @@
 
 - [<KN-xxxxxxxx> — <canonical_name>](#kn-xxxxxxxx) · L1 L2
 
-[Knowledge Map](#knowledge-map) · [Open Learning Debt](#open-learning-debt)
+**Knowledge Architecture:** [Knowledge Map](#knowledge-map)
+
+**Open Questions / Learning Debt:** [Open Questions](#what-is-still-unresolved) · [Open Learning Debt](#open-learning-debt)
 <!-- SITL:INDEX:END -->
 
 <!-- SITL:MODEL:START -->
@@ -87,6 +91,8 @@
 **Record:** `<HS-xxxxxxxx>` v<record_version> · `<work_unit_id>` · `<checkpoint>`
 
 </details>
+
+[↑ Project Home](#project-home)
 <!-- SITL:HS:<HS-xxxxxxxx>:END -->
 
 ## Learning
@@ -97,7 +103,11 @@
 
 #### Where am I?
 
-<ROOT> → <parent> → **<canonical_name>**
+[Project Home](#project-home) → [Knowledge Map](#knowledge-map) → <ROOT> → <parent> → **<canonical_name>**
+
+Parent: <[parent](#kn-xxxxxxxx); parent_id yoksa Yok.>
+
+Reading order — Previous: <NEXT kaynağı> · Next: <NEXT hedefi; NEXT yoksa satır yok>
 
 Also part of: <secondary PART_OF; yoksa satır yok>
 
@@ -144,10 +154,14 @@ Learning depth: <L1 · L2> · Source: `<event-id>` (`<artifact path>`)
 flowchart LR
     KN_xxxxxxxx["<canonical_name> (KN-xxxxxxxx)"] --> KN_yyyyyyyy["<canonical_name> (KN-yyyyyyyy)"]
 ```
+
+[↑ Project Home](#project-home)
 <!-- SITL:MAP:END -->
 
 <!-- SITL:DEBT:START -->
 ## Open Learning Debt
 
 - `<KD-...>` — <concept> · <priority> · <work_unit_ids>
+
+[↑ Project Home](#project-home)
 <!-- SITL:DEBT:END -->

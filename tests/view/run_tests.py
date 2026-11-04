@@ -421,14 +421,15 @@ check("J local map: State / Observation / Duration branches", [c in hsm for c in
 check("J local map shows node relations", "KN_00000020 -- USES --> KN_00000040" in hsm, True)
 check("J local maps valid Mermaid", [vm.mermaid_errors(v[0]) for v in lm.values() if v], [[], []])
 check("J breadcrumb from parent_id chain", re.search(r"^.* → \*\*Duration Model\*\*$", jb["KN:KN-00000040"], re.M).group(0),
-      "Machine Learning → [Sequence Models](#kn-00000010) → [Hidden-State Models](#kn-00000020) → [Duration](#kn-00000032) → **Duration Model**")
+      "[Project Home](#project-home) → [Knowledge Map](#knowledge-map) → Machine Learning → [Sequence Models](#kn-00000010) → "
+      "[Hidden-State Models](#kn-00000020) → [Duration](#kn-00000032) → **Duration Model**")
 check("J secondary membership shown separately", "Also part of: Probabilistic Models" in jb["KN:KN-00000020"], True)
 check("J maps carry no lesson text", any("Skor yanlış" in b for k, b in jb.items() if k == "MAP") or any("Skor yanlış" in m[0] for m in lm.values() if m), False)
 check("J lesson text once per concept section", all(b.count("Skor yanlış iyi görünür.") == 1 for k, b in jb.items() if k.startswith("KN:")), True)
 check("J related concepts link to sections", "- USES → [Duration Model](#kn-00000040)" in jb["KN:KN-00000020"], True)
 
 # Test K - 07 §V integrity, candidate safety, write failure (spec 33, 34)
-check("K 15 V checks", sorted(P.checks), [f"V-{i:02d}" for i in range(1, 16)])
+check("K 17 V checks", sorted(P.checks), [f"V-{i:02d}" for i in range(1, 18)])
 check("K structural / misleading checks FAIL", sorted(c for c, s in P.checks.items() if s == "FAIL"),
       ["V-02", "V-03", "V-04", "V-05", "V-09", "V-10", "V-12", "V-13"])
 base = vtext(pd)
@@ -674,7 +675,7 @@ check("P technical snapshot collapsed, keeps the rest", (model.count("<summary><
       parts_seq(model.split("<details>")[1])), (1, ["Architecture", "Components", "Active Decisions", "Dependencies"]))
 ctx_lines = [l for l in MF.CONTEXT.splitlines() if l.strip() and not l.startswith(("## ", "```"))]
 check("P every context line appears exactly once in the model", [l for l in ctx_lines if model.count(l) != 1], [])
-check("P model update touches only MODEL", [k for k in m if m[k] != before_model[k]], ["MODEL"])
+check("P model update touches only MODEL + Project Home (09 §3.1)", [k for k in m if m[k] != before_model[k]], ["INDEX", "MODEL"])
 check("P view == rebuild; only V-15 (old-style record) remains", (vtext(pp) == vp.rebuild(), vp.integrity(vtext(pp))), (True, [("V-15", "WARNING")]))
 
 # Test O - protocol vocabulary
@@ -709,9 +710,9 @@ q0, qt, qg = q_files(), vtext(pq), (pq.root / GRAPH_F).read_text(encoding="utf-8
 qm = RB.metrics(qt, qg, SKILL)
 check("Q baseline tool reports exactly the 09 §13.2 metrics", list(qm), P.metrics)
 check("Q baseline fixture structure", qm, {
-    "lines_total": 241, "lines_visible": 102, "lines_collapsed": 12, "details_blocks": 7, "details_max_depth": 1, "hs_units": 3, "kn_concepts": 2,
-    "graph_nodes": 4, "graph_edges": 2, "graph_edges_by_relation": "NEXT=1; USES=1", "links_internal": 11, "links_broken": 0,
-    "links_from_index": 7, "links_from_hs": 0, "links_from_kn": 4, "kn_without_outgoing_link": 0, "maps_global": 1,
+    "lines_total": 263, "lines_visible": 113, "lines_collapsed": 12, "details_blocks": 7, "details_max_depth": 1, "hs_units": 3, "kn_concepts": 2,
+    "graph_nodes": 4, "graph_edges": 2, "graph_edges_by_relation": "NEXT=1; USES=1", "links_internal": 24, "links_broken": 0,
+    "links_from_index": 9, "links_from_hs": 3, "links_from_kn": 10, "kn_without_outgoing_link": 0, "maps_global": 1,
     "maps_local_structured": 4, "maps_local_by_source": "BLOCK=2; CONCEPT_L0=2; GRAPH=0", "maps_local_mermaid": 0,
     "global_map_edges_by_kind": "HIERARCHY=3; NEXT=1"})
 check("Q local map sources = 09 §13.2 source table", [x.split("=")[0] for x in qm["maps_local_by_source"].split("; ")], sorted(P.local_sources))
@@ -746,5 +747,277 @@ check("Q contract: Markdown view is the only DERIVED layer", {k: v[0] for k, v i
       {"Markdown view": "DERIVED"})
 check("Q contract: DERIVED layer is the 09 §1 view", P.layers["Markdown view"][1], [Path(P.path).name])
 check("Q view == rebuild (rendering unchanged by the contract)", qt, vq.rebuild())
+
+# Test R - Project Home and navigation architecture (09 §3.1, §3.2, §6.3; 07 V-01, V-16, V-17)
+pr = project("pr", steps=2)
+vr = View(P, pr.root)
+sync(pr, vr)
+light(pr, LIGHT_A, "x", L_LIGHT)
+rn = [node("KN-00000001", "Project Root", "ROOT"),
+      node("KN-000000a1", "Estimation", "DOMAIN", "KN-00000001", "L1", arts=LIGHT_A),
+      node("KN-000000b1", "Forward Pass", "CONCEPT", "KN-000000a1", "L1; L2", arts=LIGHT_A),
+      node("KN-000000b2", "Backward Pass", "CONCEPT", "KN-000000a1", "L1", arts=LIGHT_A),
+      node("KN-000000b3", "Smoothing", "CONCEPT", "KN-000000a1", "L1", arts=LIGHT_A)]
+r_edges = [edge("KE-0001", "KN-000000b1", "NEXT", "KN-000000b2"), edge("KE-0002", "KN-000000b2", "NEXT", "KN-000000b3"),
+           edge("KE-0003", "KN-000000b3", "USES", "KN-000000b1")]
+write_graph(pr, 1, rn, r_edges)
+vr.on_map_sync(None)
+rt = vtext(pr)
+rb = blocks(rt)
+where = lambda b: b.split("#### Where am I?\n\n", 1)[1].split("\nLearning depth:", 1)[0]  # noqa: E731
+r_kn = [k for k in rb if k.startswith("KN:")]
+tpl = (SKILL / "templates" / "KNOWLEDGE_VIEW_TEMPLATE.md").read_text(encoding="utf-8")
+bold = lambda b: re.findall(r"^\*\*(.+?)\*\*", b, re.M)  # noqa: E731
+check("R Project Home is the INDEX entry point", (P.heading["INDEX"], rb["INDEX"].splitlines()[1], vm.slug("Project Home")),
+      ("## Project Home", "## Project Home", "project-home"))
+check("R Project Home order = template = 09 §3.1", (bold(rb["INDEX"]), bold(tpl.split("<!-- SITL:INDEX:START -->")[1].split("<!-- SITL:INDEX:END -->")[0])),
+      (["Start here:", "Human Sync", "Learning", "Knowledge Architecture:", "Open Questions / Learning Debt:"],) * 2)
+check("R Project Home links every top-level destination", sorted(set(vm.link_targets(rb["INDEX"])) & set(P.anchor.values())),
+      sorted({"project-in-60-seconds", "knowledge-map", "open-learning-debt"} | {vm.slug(v) for v in vr.model_layers(Reader())["HUMAN_VIEWS"]
+                                                                                if vm.slug(v) in P.anchor.values()}))
+check("R 09 §3.2 heading anchors are the GitHub slugs of their headings", [(a, t) for a, t, s in P.anchor_rows if s == "heading" and vm.slug(t.lstrip("# ")) != a], [])
+check("R every Learning Concept exposes Project Home, Knowledge Map and parent", [k for k in r_kn if not (
+      where(rb[k]).startswith("[Project Home](#project-home) → [Knowledge Map](#knowledge-map) → ") and "\nParent: " in where(rb[k]))], [])
+check("R conceptual parent = primary parent_id", [re.search(r"^Parent: (.+)$", rb[k], re.M).group(1) for k in r_kn],
+      ["Project Root", "[Estimation](#kn-000000a1)", "[Estimation](#kn-000000a1)", "[Estimation](#kn-000000a1)"])
+check("R previous / next from NEXT only, where applicable", [re.findall(r"^Reading order — (.+)$", rb[k], re.M) for k in r_kn],
+      [[], ["Next: [Backward Pass](#kn-000000b2)"], ["Previous: [Forward Pass](#kn-000000b1) · Next: [Smoothing](#kn-000000b3)"],
+       ["Previous: [Backward Pass](#kn-000000b2)"]])
+check("R navigation order is not dependency: USES not in reading order, NEXT not a dependency target",
+      ("Smoothing" in where(rb["KN:KN-000000b1"]), vr.dep_keys(vr.sources(), "KN:KN-000000b2"),
+       [w for k in r_kn for w in ("REQUIRES", "DEPENDS_ON", "USES", "requires", "depends") if w in where(rb[k])]), (False, [], []))
+check("R HS, MAP and DEBT end with the Project Home back link", [k for k in rb if k.split(":")[0] in ("HS", "MAP", "DEBT")
+      and rb[k].splitlines()[-2] != "[↑ Project Home](#project-home)"], [])
+nav_anchors = {a for a in set(P.anchor.values()) | {k[3:].lower() for k in rb if ":" in k} if a in vm.anchors_of(rt)}
+check("R conditional anchor absent -> not linked", ("what-is-still-unresolved" in vm.anchors_of(rt), "#what-is-still-unresolved" in rt), (False, False))
+check("R every navigation anchor at most once; linked ones exactly once",
+      ([a for a in sorted(set(P.anchor.values()) | nav_anchors) if vm.anchors_of(rt).count(a) > 1],
+       [a for a in sorted(set(vm.link_targets(rt))) if vm.anchors_of(rt).count(a) != 1]), ([], []))
+check("R no broken internal link; clean view", (RB.metrics(rt, (pr.root / GRAPH_F).read_text(encoding="utf-8"), SKILL)["links_broken"], vr.integrity(rt)), (0, []))
+check("R anchors deterministic: view == rebuild == rebuild", (rt == vr.rebuild(), vr.rebuild() == vr.rebuild()), (True, True))
+# rename: identity unchanged -> anchors unchanged; neighbours re-rendered incrementally
+pre_graph = (pr.root / GRAPH_F).read_text(encoding="utf-8")
+write_graph(pr, 2, [dict(n, canonical_name="Backward Recursion") if n["node_id"] == "KN-000000b2" else n for n in rn], r_edges)
+vr.on_map_sync(pre_graph)
+r1 = blocks(vtext(pr))
+check("R rename keeps every anchor", sorted(set(vm.anchors_of(vtext(pr))) & nav_anchors), sorted(nav_anchors))
+check("R rename updates neighbours' reading order", ("Next: [Backward Recursion](#kn-000000b2)" in r1["KN:KN-000000b1"],
+      "Previous: [Backward Recursion](#kn-000000b2)" in r1["KN:KN-000000b3"]), (True, True))
+check("R rename incremental == rebuild", vtext(pr), vr.rebuild())
+# concept added: only the new section, its NEXT neighbour, its parent (local map), MAP and INDEX change
+rn2 = [dict(n, canonical_name="Backward Recursion") if n["node_id"] == "KN-000000b2" else n for n in rn] + \
+      [node("KN-000000b4", "Posterior Decoding", "CONCEPT", "KN-000000a1", "L1", arts=LIGHT_A)]
+pre_graph = (pr.root / GRAPH_F).read_text(encoding="utf-8")
+write_graph(pr, 3, rn2, r_edges + [edge("KE-0004", "KN-000000b3", "NEXT", "KN-000000b4")])
+vr.on_map_sync(pre_graph)
+r2 = blocks(vtext(pr))
+check("R concept added: changed sections", sorted(k for k in r2 if r1.get(k) != r2[k]), ["INDEX", "KN:KN-000000a1", "KN:KN-000000b3", "KN:KN-000000b4", "MAP"])
+check("R concept added: previous / next linked both ways", (re.findall(r"^Reading order — (.+)$", r2["KN:KN-000000b4"], re.M),
+      "Next: [Posterior Decoding](#kn-000000b4)" in r2["KN:KN-000000b3"]), (["Previous: [Smoothing](#kn-000000b3)"], True))
+check("R concept added incremental == rebuild; clean", (vtext(pr) == vr.rebuild(), vr.integrity(vtext(pr))), (True, []))
+# concept removed (SUPERSEDED): neighbours drop it, no navigation link breaks
+pre_graph = (pr.root / GRAPH_F).read_text(encoding="utf-8")
+write_graph(pr, 4, [dict(n, node_status="SUPERSEDED", superseded_by="KN-000000b3") if n["node_id"] == "KN-000000b2" else n for n in rn2],
+            r_edges + [edge("KE-0004", "KN-000000b3", "NEXT", "KN-000000b4")])
+vr.on_map_sync(pre_graph)
+r3 = blocks(vtext(pr))
+check("R concept removed: neighbours drop it from reading order", (re.findall(r"^Reading order — (.+)$", r3["KN:KN-000000b1"], re.M),
+      re.findall(r"^Reading order — (.+)$", r3["KN:KN-000000b3"], re.M)), ([], ["Next: [Posterior Decoding](#kn-000000b4)"]))
+check("R concept removed: Project Home drops it, no broken link", ("#kn-000000b2" in r3["INDEX"], vr.broken_link_keys(vtext(pr), View.spans(vtext(pr)))),
+      (False, []))
+# integrity: broken, duplicate, wrong parent, invalid previous / next, missing back link
+pre_graph = (pr.root / GRAPH_F).read_text(encoding="utf-8")
+write_graph(pr, 5, rn2, r_edges + [edge("KE-0004", "KN-000000b3", "NEXT", "KN-000000b4")])
+vr.on_map_sync(pre_graph)
+base_r = vtext(pr)
+check("R fixture restored before integrity checks", (base_r == vr.rebuild(), vr.integrity(base_r)), (True, []))
+rf = pr.root / VIEW_F
+
+
+def r_crafted(fn):
+    rf.write_text(fn(base_r), encoding="utf-8")
+    try:
+        return [c for c, _ in vr.integrity(vtext(pr))]
+    finally:
+        rf.write_text(base_r, encoding="utf-8")
+
+
+check("R broken anchor in a concept -> V-01", "V-01" in r_crafted(lambda t: t.replace("Next: [Backward Recursion](#kn-000000b2)", "Next: [Backward Recursion](#kn-0000beef)")),
+      True)
+check("R Project Home anchor gone -> V-01", "V-01" in r_crafted(lambda t: t.replace("## Project Home", "## Home")), True)
+check("R duplicate navigation anchor -> V-16 only", r_crafted(lambda t: t.replace("#### L1 — Simple Mental Model", "#### Knowledge Map", 1)), ["V-16"])
+check("R wrong parent link -> V-17", r_crafted(lambda t: t.replace("Parent: [Estimation](#kn-000000a1)", "Parent: [Smoothing](#kn-000000b3)", 1)), ["V-17"])
+check("R invalid previous / next -> V-17", r_crafted(lambda t: t.replace("Next: [Backward Recursion](#kn-000000b2)", "Next: [Smoothing](#kn-000000b3)")), ["V-17"])
+check("R missing Project Home back link -> V-17", r_crafted(lambda t: t.replace("\n\n[↑ Project Home](#project-home)\n<!-- SITL:DEBT:END", "\n<!-- SITL:DEBT:END")),
+      ["V-17"])
+rf.write_text(base_r.replace("Parent: [Estimation](#kn-000000a1)", "Parent: [Smoothing](#kn-000000b3)", 1), encoding="utf-8")
+wrong = blocks(vtext(pr))
+found, res = vr.repair()
+check("R V-17 repair rewrites only the wrong section", (found, res, vtext(pr) == base_r, [k for k in wrong if wrong[k] != blocks(base_r)[k]]),
+      ([("V-17", "WARNING")], "REPAIRED", True, ["KN:KN-000000b1"]))
+rf.write_text(base_r.replace("#### L1 — Simple Mental Model", "#### Knowledge Map", 1), encoding="utf-8")
+check("R V-16 not repaired by the view", vr.repair()[1], "NOTHING")
+old = base_r.replace("[Project Home](#project-home) → [Knowledge Map](#knowledge-map) → ", "").replace("\n\n[↑ Project Home](#project-home)", "")
+old = re.sub(r"\n\n(?:Parent|Reading order) .*(?=\n)|\n\nParent: .*(?=\n)", "", old)
+rf.write_text(old, encoding="utf-8")
+old_found = vr.integrity(vtext(pr))
+check("R pre-VIS-02 view -> V-17 WARNING; repair == rebuild", (old_found, vr.repair()[1], vtext(pr) == base_r), ([("V-17", "WARNING")], "REPAIRED", True))
+# legacy view without DEBT (HSMM shape): zero OPEN debt, repair inserts the structural DEBT destination
+legacy = re.sub(r"\n\n<!-- SITL:DEBT:START -->.*<!-- SITL:DEBT:END -->", "", old, flags=re.S)
+rf.write_text(legacy, encoding="utf-8")
+lg_found, lg_broken = vr.integrity(vtext(pr)), RB.metrics(vtext(pr), (pr.root / GRAPH_F).read_text(encoding="utf-8"), SKILL)["links_broken"]
+lg_res = vr.repair()[1]
+lg = vtext(pr)
+check("R legacy view without DEBT, zero OPEN debt -> V-01, V-08, V-17; 1 broken link",
+      ("SITL:DEBT" in legacy, [d for d in vr.sources()["debts"] if d["debt_status"] == "OPEN"], lg_found, lg_broken),
+      (False, [], [("V-01", "WARNING"), ("V-08", "WARNING"), ("V-17", "WARNING")], 1))
+check("R legacy repair inserts DEBT (Yok. + back link); links_broken 0; clean; == rebuild",
+      (lg_res, blocks(lg)["DEBT"].splitlines()[1:-1], RB.metrics(lg, (pr.root / GRAPH_F).read_text(encoding="utf-8"), SKILL)["links_broken"],
+       vr.integrity(lg), lg == base_r),
+      ("REPAIRED", ["## Open Learning Debt", "", "Yok.", "", "[↑ Project Home](#project-home)"], 0, [], True))
+rf.write_text(base_r, encoding="utf-8")
+# empty Learning state
+pr0 = project("pr0", steps=1)
+vr0 = View(P, pr0.root)
+sync(pr0, vr0)
+r0 = blocks(vtext(pr0))
+check("R empty Learning: Project Home lists Yok., no KN section", ("**Learning** — technical learning. Human Sync ≠ learned.\n\n- Yok." in r0["INDEX"],
+      [k for k in r0 if k.startswith("KN:")]), (True, []))
+check("R empty Learning: map and debt still navigable; clean", (r0["MAP"].splitlines()[-2], vr0.broken_link_keys(vtext(pr0), View.spans(vtext(pr0))),
+      vr0.integrity(vtext(pr0))), ("[↑ Project Home](#project-home)", [], []))
+
+# Test S - block-structured Full ULA CONTENT.md (09 §6.2, HSMM shape) survives VIS-02 migration
+BLOCK_A = "docs/learning/passes/LP-20261031-01/ula/LE-LP-20261031-01-01/CONTENT.md"
+BLOCK_CONTENT = """```yaml
+event_id: LE-LP-20261031-01-01
+artifact: CONTENT
+artifact_status: COMPLETE
+updated_at: 2026-10-31
+```
+
+# ULA Learning Content — Explicit-Duration HSMM
+
+<!-- builder note -->
+
+# L0 — Harita
+
+```text
+B1 Neden → B2 Döngü
+```
+
+# B1 — Neden Gerekli
+
+**Orientation.** Parent: L0. Next: B2.
+
+## L1 — Simple Explanation
+
+HMM süreyi geometrik kabul eder.
+
+## L2 — Mechanism
+
+### Mechanism Map
+
+Kalma kararı ayrı bir dağılımdan gelir.
+
+## L3 — Theory
+
+Geometrik süre hafızasızdır.
+
+## L4 — Math / Formalism
+
+$$P(d) = p(1-p)^{d-1}$$
+
+**Transition.** Şimdi döngüye bakalım.
+
+---
+
+# LOCAL MAP — B2 Üretim Döngüsü
+
+```text
+B2.1 Başlangıç
+   ↓
+B2.2 Süre
+```
+
+# B2 — Üretim Döngüsü
+
+**Orientation.** Parent: L0. Previous: B1.
+
+## L1 — Simple Explanation
+
+Model önce rejim, sonra süre seçer.
+
+## L2 — Mechanism
+
+1. Rejim seç.
+2. Süre çek.
+
+## L3 — Theory
+
+`A`'nın köşegeni sıfırdır.
+
+## L4 — NO L4 REQUIRED
+
+Bu blok bir döngü tarifidir.
+
+**Transition.** Event 02 çıkarımı sorar.
+
+---
+
+# Retrieval Check
+
+1. Kalma kararı nerede?
+
+# R — Reference
+
+- GENERAL THEORY: explicit-duration HSMM.
+
+# Learning Integrity Check
+
+internal audit text
+"""
+ps = project("ps", steps=1)
+vs = View(P, ps.root)
+sync(ps, vs)
+light(ps, LIGHT_A, "x", L_LIGHT)
+ps.write(BLOCK_A, BLOCK_CONTENT)
+write_graph(ps, 1, [node("KN-00000001", "HSMM Study", "ROOT"),
+                    node("KN-000000c1", "Explicit-Duration HSMM", "CONCEPT", "KN-00000001", "L1; L2; L3; L4", arts=BLOCK_A, events="LE-LP-20261031-01-01"),
+                    node("KN-000000c2", "Duration Lattice", "CONCEPT", "KN-00000001", "L1", arts=LIGHT_A)],
+            [edge("KE-0001", "KN-000000c1", "NEXT", "KN-000000c2")])
+vs.on_map_sync(None)
+st = vtext(ps)
+sb = blocks(st)["KN:KN-000000c1"]
+part = lambda b, name: b.split(name, 1)[1].split("\n\n#### ", 1)[0].split("\n</details>", 1)[0]  # noqa: E731
+check("S block-structured Full: parts in 09 §6.1 order", re.findall(r"^(?:#### |<summary><strong>)(.+?)(?:</strong></summary>)?$", sb, re.M),
+      ["Where am I?", "L0 — Map", "L1 — Simple Mental Model", "L2 — Mechanism", "L3 — Theory", "L4 — Formalism", "Retrieval", "Reference", "Related Concepts"])
+check("S L0 = L0 body + LOCAL MAP blocks", part(sb, "#### L0 — Map\n\n"),
+      "```text\nB1 Neden → B2 Döngü\n```\n\n##### LOCAL MAP — B2 Üretim Döngüsü\n\n```text\nB2.1 Başlangıç\n   ↓\nB2.2 Süre\n```")
+check("S level part gathers every block under ##### <block>", part(sb, "#### L1 — Simple Mental Model\n\n"),
+      "##### B1 — Neden Gerekli\n\nHMM süreyi geometrik kabul eder.\n\n##### B2 — Üretim Döngüsü\n\nModel önce rejim, sonra süre seçer.")
+check("S nested level sub-heading shifted under the block", "##### B1 — Neden Gerekli\n\n###### Mechanism Map\n\nKalma kararı" in sb, True)
+check("S NO L4 REQUIRED kept as first body line", part(sb, "<summary><strong>L4 — Formalism</strong></summary>\n\n"),
+      "###### B1 — Neden Gerekli\n\n$$P(d) = p(1-p)^{d-1}$$\n\n###### B2 — Üretim Döngüsü\n\nNO L4 REQUIRED.\n\nBu blok bir döngü tarifidir.\n")
+check("S Retrieval Check and R — Reference projected", ("1. Kalma kararı nerede?" in sb, "- GENERAL THEORY: explicit-duration HSMM." in sb), (True, True))
+check("S title, comments, Orientation, Transition, Integrity Check not shown",
+      [w for w in ("ULA Learning Content", "builder note", "**Orientation.**", "**Transition.**", "internal audit text") if w in st], [])
+src_lines = [l for blk in re.split(r"^# ", BLOCK_CONTENT, flags=re.M) if re.match(r"(B\d|L0|LOCAL MAP|Retrieval|R —)", blk)
+             for l in blk.splitlines()[1:] if l.strip() and l != "---" and not l.startswith(("#", "**Orientation.**", "**Transition.**"))]
+check("S every learning line of the artifact is in the KN section", [l for l in src_lines if l not in sb.splitlines()], [])
+check("S block view clean; == rebuild", (vs.integrity(st), st == vs.rebuild()), ([], True))
+# pre-VIS-02 view of the same project, also without DEBT: repair adds navigation, keeps the learning body
+learn_body = lambda t: blocks(t)["KN:KN-000000c1"].split("\nLearning depth:", 1)[1]  # noqa: E731
+s_old = st.replace("[Project Home](#project-home) → [Knowledge Map](#knowledge-map) → ", "").replace("\n\n[↑ Project Home](#project-home)", "")
+s_old = re.sub(r"\n\n(?:Parent|Reading order) .*(?=\n)", "", s_old)
+s_old = re.sub(r"\n\n<!-- SITL:DEBT:START -->.*<!-- SITL:DEBT:END -->", "", s_old, flags=re.S)
+(ps.root / VIEW_F).write_text(s_old, encoding="utf-8")
+s_found = [c for c, _ in vs.integrity(vtext(ps))]
+s_res = vs.repair()[1]
+s_new = vtext(ps)
+check("S pre-VIS-02 Full ULA view -> V-01, V-08, V-17", s_found, ["V-01", "V-08", "V-17"])
+check("S migration keeps the learning body, adds navigation; clean; == rebuild",
+      (s_res, learn_body(s_new) == learn_body(s_old), "\nReading order — Next: [Duration Lattice](#kn-000000c2)\n" in s_new,
+       RB.metrics(s_new, (ps.root / GRAPH_F).read_text(encoding="utf-8"), SKILL)["links_broken"], vs.integrity(s_new), s_new == st),
+      ("REPAIRED", True, True, 0, [], True))
 
 report(RESULTS)
