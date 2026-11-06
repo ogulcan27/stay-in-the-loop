@@ -10,7 +10,7 @@
 <!-- SITL:INDEX:START -->
 ## Project Home
 
-**Start here:** [Project in 60 Seconds](#project-in-60-seconds) · [Current Position](#where-are-we-now)
+**Start here:** [Project in 60 Seconds](#project-in-60-seconds) · [Current Position](#where-are-we-now) · [Project Journey](#project-journey)
 
 **Human Sync** — project comprehension
 
@@ -54,6 +54,18 @@
 
 </details>
 <!-- SITL:MODEL:END -->
+
+<!-- SITL:JOURNEY:START -->
+## Project Journey
+
+- [<label>](#hs-xxxxxxxx) — <Problem> → <Action> → **<Result>**
+  - Revision: [<label>](#hs-xxxxxxxx) — <Problem> → <Action> → **<Result>**
+- [<label>](#hs-xxxxxxxx) — <Problem> → <Action> → **<Result>** · **Current position**
+
+Not yet synced: <label>, <label>
+
+[↑ Project Home](#project-home)
+<!-- SITL:JOURNEY:END -->
 
 ## Human Sync
 

@@ -239,7 +239,7 @@ Kapsam: Yalnız active project root altındaki `docs/learning/STAY_IN_THE_LOOP.m
 | V-05 | `SITL:VIEW` `project_id` config ile farklı; veya HS ID bu project'in sync state'inde yok | FAIL | View kullanılmaz. Write yok. |
 | V-06 | HS status satırı state `sync_status` ile uyuşmuyor (`09` §5) | WARNING | rebuild `KNOWLEDGE_VIEW` HS section |
 | V-07 | Section eski: HS `v` ≠ `record_version`; KN `depth` ≠ `available_depth`; KN adı ≠ `canonical_name` | WARNING | rebuild `KNOWLEDGE_VIEW` section |
-| V-08 | İçerik var ama section yok: `SYNCED` / `STALE` record, depth'li `ACTIVE` node, `OPEN` debt; view var ama `DEBT` section yok (`09` §3); veya view yok | WARNING | rebuild `KNOWLEDGE_VIEW` section (`09` §12) |
+| V-08 | İçerik var ama section yok: `SYNCED` / `STALE` record, depth'li `ACTIVE` node, `OPEN` debt; view var ama `DEBT` veya `JOURNEY` section yok (`09` §3); veya view yok | WARNING | rebuild `KNOWLEDGE_VIEW` section (`09` §12) |
 | V-09 | Section içinde kapanmamış code fence veya dengesiz `<details>` | FAIL | View write yok. Kullanıcıya göster. |
 | V-10 | HS / KN section'ında kendi `###` heading'i dışında `#`–`###` heading; diğer section'da kendi `##` heading'i dışında `#`–`###` heading | FAIL | View write yok. Kullanıcıya göster. |
 | V-11 | `UNSYNCED` unit için HS section; `DEBT` / `SUPERSEDED` node için KN section; veya `available_depth` dışında level | WARNING | rebuild `KNOWLEDGE_VIEW` section |
@@ -249,6 +249,7 @@ Kapsam: Yalnız active project root altındaki `docs/learning/STAY_IN_THE_LOOP.m
 | V-15 | HS HUMAN katmanında ilk geçişte tanımsız proje sembolü (`09` §5.2) | WARNING | Rapor edilir. Record sonraki refresh'te düzeltilir (`03` §5). |
 | V-16 | Navigation anchor'ı (`09` §3.2) birden fazla üretiliyor | WARNING | Rapor edilir. Çakışan heading kaynağında düzeltilir. |
 | V-17 | Section navigation'ı graph veya `09` §3.1 / §6.3 ile uyuşmuyor: breadcrumb, parent, reading order veya Project Home dönüşü | WARNING | rebuild `KNOWLEDGE_VIEW` section |
+| V-18 | `JOURNEY` Human Sync state veya record Purpose ile uyuşmuyor: node, sıra, revision grubu, status, current position veya link (`09` §5.4) | WARNING | rebuild `KNOWLEDGE_VIEW` JOURNEY |
 
 - Candidate FAIL → view yazılmaz. Authoritative write geri alınmaz. Sonuç WARNING olarak raporlanır.
 - Mevcut dosyada FAIL → Final Integrity FAIL. View bozuk veya yanıltıcıdır. Tam rebuild yalnız kullanıcı onayı ile yapılır (`09` §12).

@@ -145,6 +145,21 @@ MUTATIONS = [
      [(R09, r"^(\| L4 — Formalism \| her block'ta) `## L4 — …` \|", r"\1 `## L4 — Math / Formalism` |")], ["view"]),
     ("VIS-M16", "09 §6.2 block LOCAL MAP no longer in L0",
      [(R09, r"^(\| L0 — Map \| `# L0 — …`), ardından her `# LOCAL MAP — …` \|", r"\1 |")], ["view"]),
+    ("VIS-M17", "09 §5.4 journey ordered by record_id instead of seq (units reordered)",
+     [(R09, r"^(\| node \| Record'u olan unit \(`SYNCED`, `STALE`\)), `seq` sırası \|", r"\1, `record_id` sırası |")], ["view"]),
+    ("VIS-M18", "09 §5.4 revision parent pattern lost (revisions no longer grouped)",
+     [(R09, r"^\| revision \| Native step ID `<parent>-R<n>` \|", "| revision | Native step ID `<parent>-REV<n>` |")], ["view"]),
+    ("VIS-M19", "09 §5.4 journey step taken from Downstream Impact (unsupported claim)",
+     [(R09, r"^\| adım \| Record `Purpose`:", "| adım | Record `Downstream Impact`:")], ["view"]),
+    ("VIS-M20", "09 §5.4 journey link no longer the HS anchor (broken Human Sync link)",
+     [(R09, r"^\| link \| HS section anchor'ı `#hs-xxxxxxxx` \|", "| link | HS section anchor'ı `#hs_xxxxxxxx` |")], ["view"]),
+    ("VIS-M21", "07 V-18 removed (stale journey accepted)", [(R07, r"^\| V-18 \|.*\n", "")], ["view"]),
+    ("VIS-M22", "09 §3 JOURNEY no longer structural (legacy view never gets a journey)",
+     [(R09, r"^- `JOURNEY` structural top-level destination.*\n", "")], ["view"]),
+    ("VIS-M23", "template JOURNEY loses the revision line",
+     [("templates/KNOWLEDGE_VIEW_TEMPLATE.md", r"^  - Revision: .*\n", "")], ["view"]),
+    ("VIS-M24", "08 §11 sync-only run may not write JOURNEY",
+     [("references/08_HUMAN_SYNC_STATE.md", r"^(\| `STAY_IN_THE_LOOP.md` \| Yalnız HS), JOURNEY,", r"\1,")], ["view"]),
 ]
 
 

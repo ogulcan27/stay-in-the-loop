@@ -186,7 +186,7 @@ check("B HS order in file follows seq", [k for k in View.spans(t2) if k.startswi
 check("B second update reads only new records, no whole view", (sorted(k for k, _, _ in r2["view_reads"] if k == "RECORD"),
       sorted(u for k, u, _ in r2["view_reads"] if k == "RECORD"), "WHOLE_REBUILD" in [k for k, _, _ in r2["view_reads"]]),
       (["RECORD", "RECORD"], sorted([sm.record_id(wu(4)), sm.record_id(wu(5))]), False))
-check("B unrelated sections only touched by index", [k for k in b2 if k in b1 and b1[k] != b2[k]], ["INDEX", "MODEL"])
+check("B unrelated sections only touched by index", [k for k in b2 if k in b1 and b1[k] != b2[k]], ["INDEX", "MODEL", "JOURNEY"])
 check("B incremental == rebuild after Stage 5", t2, vb.rebuild())
 check("B machine metadata only inside Technical Trace", ([x for x in ("checkpoint", "record_version", "git:", "Evidence") if x in b2[hs(4)].split("<details>")[0]],
       "git:" in b2[hs(4)].split("<details>")[1]), ([], True))
@@ -299,7 +299,7 @@ check("E no prose shared between Human Sync and Learning", sorted(hs_lines & kn_
 check("E Learning index states Human Sync ≠ learned", "Human Sync ≠ learned" in eb["INDEX"], True)
 
 # Test F - sync-only never writes KN / MAP / DEBT (08 §11, 09 §8, V-13)
-check("F 08 §11 sync-only view scope", P.sync_only_kinds, ["HS", "MODEL", "INDEX"])
+check("F 08 §11 sync-only view scope", P.sync_only_kinds, ["HS", "JOURNEY", "MODEL", "INDEX"])
 pe.write(QUEUE_F, vm.render_queue(P, [dict(zip(P.debt_cols, ["KD-LP-20261028-01-01", "Regime Persistence", "LE-LP-20261028-01-02",
                                                            wu(3), "Rejim kalıcılığı.", "Model seçimi.", "LATER", "OPEN", "2026-10-28", "UNASSIGNED", "-"]))]))
 ve.on_debt()
@@ -429,7 +429,7 @@ check("J lesson text once per concept section", all(b.count("Skor yanlış iyi g
 check("J related concepts link to sections", "- USES → [Duration Model](#kn-00000040)" in jb["KN:KN-00000020"], True)
 
 # Test K - 07 §V integrity, candidate safety, write failure (spec 33, 34)
-check("K 17 V checks", sorted(P.checks), [f"V-{i:02d}" for i in range(1, 18)])
+check("K 18 V checks", sorted(P.checks), [f"V-{i:02d}" for i in range(1, 19)])
 check("K structural / misleading checks FAIL", sorted(c for c, s in P.checks.items() if s == "FAIL"),
       ["V-02", "V-03", "V-04", "V-05", "V-09", "V-10", "V-12", "V-13"])
 base = vtext(pd)
@@ -466,11 +466,11 @@ check("K clean view -> no finding", vd.integrity(base), [])
 st_text = (pd.root / sm.STATE_F).read_text(encoding="utf-8")
 (pd.root / sm.STATE_F).write_text(st_text.replace("| SYNCED |", "| STALE |", 1), encoding="utf-8")
 found = vd.integrity(vtext(pd))
-check("K state STALE, view Current -> V-06 WARNING", found, [("V-06", "WARNING")])
+check("K state STALE, view Current -> V-06 + V-18 WARNING", found, [("V-06", "WARNING"), ("V-18", "WARNING")])
 pre = blocks(vtext(pd))
 res = vd.repair()
 post = blocks(vtext(pd))
-check("K repair rewrites only that HS section (+ index)", (res[1], sorted(k for k in post if pre[k] != post[k])), ("REPAIRED", [hs(1), "INDEX"]))
+check("K repair rewrites only that HS section (+ index, journey)", (res[1], sorted(k for k in post if pre[k] != post[k])), ("REPAIRED", [hs(1), "INDEX", "JOURNEY"]))
 check("K after repair: clean", vd.integrity(vtext(pd)), [])
 (pd.root / sm.STATE_F).write_text(st_text, encoding="utf-8")
 vd.repair()
@@ -502,12 +502,12 @@ check("K authoritative sync not undone by view failure", {r["work_unit_id"]: r["
 # write failure mid-way restores the pre-image (no half section, no lone marker)
 pk.write(f"{sm.SYNC}/records/{sm.record_id(wu(3))}.md", (pk.root / f"{sm.SYNC}/records/{sm.record_id(wu(3))}.md").read_text(encoding="utf-8").replace("```text\nGirdi → Çıktı", "Girdi → Çıktı"))
 try:
-    vk.update([hs(3), "MODEL", "INDEX"], fail_on="INDEX")
+    vk.update([hs(3), "JOURNEY", "MODEL", "INDEX"], fail_on="INDEX")
     wf = None
 except ViewBlocked as e:
     wf = str(e)
 check("K injected write error -> pre-image restored", (wf, vtext(pk) == k_before, vk.integrity(vtext(pk), structural_only=True)), ("write error", True, []))
-vk.update([hs(3), "MODEL", "INDEX"])
+vk.update([hs(3), "JOURNEY", "MODEL", "INDEX"])
 check("K retry after failure -> consistent", (vk.integrity(vtext(pk)), vtext(pk) == vk.rebuild()), ([], True))
 # foreign file is never overwritten
 pf = project("pf")
@@ -654,7 +654,7 @@ sync(pp, vp, "latest", {("material", wu(5)): "BEHAVIOUR", **{("hs", wu(n)): c fo
 p1 = blocks(vtext(pp))
 check("P stale: only the status line of that section changes", [a for a, b in zip(pb_[hs(5)].splitlines(), p1[hs(5)].splitlines()) if a != b],
       ["**Status:** Current"])
-check("P stale: other sections byte-identical", [k for k in pb_ if k != hs(5) and pb_[k] != p1[k]], ["INDEX", "MODEL"])
+check("P stale: other sections byte-identical", [k for k in pb_ if k != hs(5) and pb_[k] != p1[k]], ["INDEX", "MODEL", "JOURNEY"])
 sync(pp, vp, "", {("hs", wu(n)): c for n, c in MF.UNITS.items()})
 p2 = blocks(vtext(pp))
 check("P refresh: section rebuilt from record v2, others untouched", (View.spans(vtext(pp))[hs(5)][2]["v"], "**Status:** Current\n" in p2[hs(5)],
@@ -682,7 +682,7 @@ check("P view == rebuild; only V-15 (old-style record) remains", (vtext(pp) == v
 check("O authority rules", {k: P.rules[k] for k in ("authority", "read_mode", "write_mode", "on_write_error", "failure_effect")},
       {"authority": "DERIVED", "read_mode": "MARKERS_THEN_SECTION", "write_mode": "SECTION_PATCH", "on_write_error": "RESTORE_PRE_IMAGE",
        "failure_effect": "WARNING"})
-check("O structure order", P.order, ["VIEW", "INDEX", "MODEL", "HS", "KN", "MAP", "DEBT"])
+check("O structure order", P.order, ["VIEW", "INDEX", "MODEL", "JOURNEY", "HS", "KN", "MAP", "DEBT"])
 check("O status lines", P.status_line, {"SYNCED": "Current", "STALE": "Needs refresh"})
 check("O HS template parts = 09 §5.1 mapping", P.hs_sections, [v for v, _, _ in P.hs_map])
 check("O MODEL template = 09 §3 heading + §5.3 parts", (P.model_template_heading, P.model_sections), (P.model_heading, [v for v, _, _ in P.model_map]))
@@ -710,9 +710,9 @@ q0, qt, qg = q_files(), vtext(pq), (pq.root / GRAPH_F).read_text(encoding="utf-8
 qm = RB.metrics(qt, qg, SKILL)
 check("Q baseline tool reports exactly the 09 §13.2 metrics", list(qm), P.metrics)
 check("Q baseline fixture structure", qm, {
-    "lines_total": 263, "lines_visible": 113, "lines_collapsed": 12, "details_blocks": 7, "details_max_depth": 1, "hs_units": 3, "kn_concepts": 2,
-    "graph_nodes": 4, "graph_edges": 2, "graph_edges_by_relation": "NEXT=1; USES=1", "links_internal": 24, "links_broken": 0,
-    "links_from_index": 9, "links_from_hs": 3, "links_from_kn": 10, "kn_without_outgoing_link": 0, "maps_global": 1,
+    "lines_total": 273, "lines_visible": 118, "lines_collapsed": 12, "details_blocks": 7, "details_max_depth": 1, "hs_units": 3, "kn_concepts": 2,
+    "graph_nodes": 4, "graph_edges": 2, "graph_edges_by_relation": "NEXT=1; USES=1", "links_internal": 29, "links_broken": 0,
+    "links_from_index": 10, "links_from_hs": 3, "links_from_kn": 10, "kn_without_outgoing_link": 0, "maps_global": 1,
     "maps_local_structured": 4, "maps_local_by_source": "BLOCK=2; CONCEPT_L0=2; GRAPH=0", "maps_local_mermaid": 0,
     "global_map_edges_by_kind": "HIERARCHY=3; NEXT=1"})
 check("Q local map sources = 09 §13.2 source table", [x.split("=")[0] for x in qm["maps_local_by_source"].split("; ")], sorted(P.local_sources))
@@ -739,7 +739,7 @@ check("Q contract: seven reader questions", P.reader_questions, ["Where am I?", 
 content_kinds = [k for k in P.order if k not in ("VIEW", "INDEX")]
 check("Q contract: Human Sync and Learning are separate navigation domains",
       (P.domains["HUMAN_SYNC"], P.domains["LEARNING"], sorted(P.domains["HUMAN_SYNC"] + P.domains["LEARNING"]) == sorted(content_kinds)),
-      (["MODEL", "HS"], ["KN", "MAP", "DEBT"], True))
+      (["MODEL", "JOURNEY", "HS"], ["KN", "MAP", "DEBT"], True))
 classes = [r for rs in P.edge_classes.values() for r in rs]
 check("Q contract: every graph relation has exactly one class", (sorted(classes), len(classes) == len(set(classes))), (sorted(P.relation_types), True))
 check("Q contract: NEXT is navigation only, never dependency", (P.edge_classes["NAVIGATION"], "NEXT" in P.edge_classes["SEMANTIC"]), (["NEXT"], False))
@@ -773,7 +773,7 @@ check("R Project Home is the INDEX entry point", (P.heading["INDEX"], rb["INDEX"
 check("R Project Home order = template = 09 §3.1", (bold(rb["INDEX"]), bold(tpl.split("<!-- SITL:INDEX:START -->")[1].split("<!-- SITL:INDEX:END -->")[0])),
       (["Start here:", "Human Sync", "Learning", "Knowledge Architecture:", "Open Questions / Learning Debt:"],) * 2)
 check("R Project Home links every top-level destination", sorted(set(vm.link_targets(rb["INDEX"])) & set(P.anchor.values())),
-      sorted({"project-in-60-seconds", "knowledge-map", "open-learning-debt"} | {vm.slug(v) for v in vr.model_layers(Reader())["HUMAN_VIEWS"]
+      sorted({"project-in-60-seconds", "project-journey", "knowledge-map", "open-learning-debt"} | {vm.slug(v) for v in vr.model_layers(Reader())["HUMAN_VIEWS"]
                                                                                 if vm.slug(v) in P.anchor.values()}))
 check("R 09 §3.2 heading anchors are the GitHub slugs of their headings", [(a, t) for a, t, s in P.anchor_rows if s == "heading" and vm.slug(t.lstrip("# ")) != a], [])
 check("R every Learning Concept exposes Project Home, Knowledge Map and parent", [k for k in r_kn if not (
@@ -859,18 +859,20 @@ rf.write_text(base_r.replace("#### L1 — Simple Mental Model", "#### Knowledge 
 check("R V-16 not repaired by the view", vr.repair()[1], "NOTHING")
 old = base_r.replace("[Project Home](#project-home) → [Knowledge Map](#knowledge-map) → ", "").replace("\n\n[↑ Project Home](#project-home)", "")
 old = re.sub(r"\n\n(?:Parent|Reading order) .*(?=\n)|\n\nParent: .*(?=\n)", "", old)
+old = re.sub(r"\n\n<!-- SITL:JOURNEY:START -->.*<!-- SITL:JOURNEY:END -->", "", old, flags=re.S)
 rf.write_text(old, encoding="utf-8")
 old_found = vr.integrity(vtext(pr))
-check("R pre-VIS-02 view -> V-17 WARNING; repair == rebuild", (old_found, vr.repair()[1], vtext(pr) == base_r), ([("V-17", "WARNING")], "REPAIRED", True))
+check("R pre-VIS-02 view (no JOURNEY) -> V-01, V-08, V-17; repair == rebuild", (old_found, vr.repair()[1], vtext(pr) == base_r),
+      ([("V-01", "WARNING"), ("V-08", "WARNING"), ("V-17", "WARNING")], "REPAIRED", True))
 # legacy view without DEBT (HSMM shape): zero OPEN debt, repair inserts the structural DEBT destination
 legacy = re.sub(r"\n\n<!-- SITL:DEBT:START -->.*<!-- SITL:DEBT:END -->", "", old, flags=re.S)
 rf.write_text(legacy, encoding="utf-8")
 lg_found, lg_broken = vr.integrity(vtext(pr)), RB.metrics(vtext(pr), (pr.root / GRAPH_F).read_text(encoding="utf-8"), SKILL)["links_broken"]
 lg_res = vr.repair()[1]
 lg = vtext(pr)
-check("R legacy view without DEBT, zero OPEN debt -> V-01, V-08, V-17; 1 broken link",
+check("R legacy view without DEBT / JOURNEY, zero OPEN debt -> V-01, V-08, V-17; 2 broken links",
       ("SITL:DEBT" in legacy, [d for d in vr.sources()["debts"] if d["debt_status"] == "OPEN"], lg_found, lg_broken),
-      (False, [], [("V-01", "WARNING"), ("V-08", "WARNING"), ("V-17", "WARNING")], 1))
+      (False, [], [("V-01", "WARNING"), ("V-08", "WARNING"), ("V-17", "WARNING")], 2))
 check("R legacy repair inserts DEBT (Yok. + back link); links_broken 0; clean; == rebuild",
       (lg_res, blocks(lg)["DEBT"].splitlines()[1:-1], RB.metrics(lg, (pr.root / GRAPH_F).read_text(encoding="utf-8"), SKILL)["links_broken"],
        vr.integrity(lg), lg == base_r),
@@ -1009,6 +1011,7 @@ check("S block view clean; == rebuild", (vs.integrity(st), st == vs.rebuild()), 
 learn_body = lambda t: blocks(t)["KN:KN-000000c1"].split("\nLearning depth:", 1)[1]  # noqa: E731
 s_old = st.replace("[Project Home](#project-home) → [Knowledge Map](#knowledge-map) → ", "").replace("\n\n[↑ Project Home](#project-home)", "")
 s_old = re.sub(r"\n\n(?:Parent|Reading order) .*(?=\n)", "", s_old)
+s_old = re.sub(r"\n\n<!-- SITL:JOURNEY:START -->.*<!-- SITL:JOURNEY:END -->", "", s_old, flags=re.S)
 s_old = re.sub(r"\n\n<!-- SITL:DEBT:START -->.*<!-- SITL:DEBT:END -->", "", s_old, flags=re.S)
 (ps.root / VIEW_F).write_text(s_old, encoding="utf-8")
 s_found = [c for c, _ in vs.integrity(vtext(ps))]
@@ -1019,5 +1022,168 @@ check("S migration keeps the learning body, adds navigation; clean; == rebuild",
       (s_res, learn_body(s_new) == learn_body(s_old), "\nReading order — Next: [Duration Lattice](#kn-000000c2)\n" in s_new,
        RB.metrics(s_new, (ps.root / GRAPH_F).read_text(encoding="utf-8"), SKILL)["links_broken"], vs.integrity(s_new), s_new == st),
       ("REPAIRED", True, True, 0, [], True))
+
+# Test T - Project Journey (09 §5.4; 07 V-08, V-18): Human Sync authority fixtures written with the sync model's own writers
+CP = "git:000000000000"
+
+
+def hs_authority(repo, units):
+    """Human Sync state + records. units: (step id, label, sync_status, Purpose). Downstream Impact carries a claim the journey must not use."""
+    rows = []
+    for seq, (step, label, status, purpose) in enumerate(units, 1):
+        wid = f"phase-doc:docs/{step.lower()}_report.md#{step}"
+        rid = "-" if status == "UNSYNCED" else sm.record_id(wid)
+        rows.append({c: "-" for c in SP.state_cols} | {"work_unit_id": wid, "seq": seq, "label": label, "sync_status": status, "record_id": rid,
+                                                        "record_version": "-" if rid == "-" else 1, "checkpoint": CP, "synced_at": "2026-11-05"})
+        if rid != "-":
+            head = {"record_id": rid, "project_id": PRJ, "work_unit_id": wid, "record_version": 1, "checkpoint": CP, "updated_at": "2026-11-05"}
+            repo.write(f"{sm.SYNC}/records/{rid}.md", sm.render_record(SP, head, {"Purpose": purpose, "Downstream Impact": f"{label} bu yüzden sonrakini başlattı."}))
+    repo.write(sm.STATE_F, sm.render_state(SP, PRJ, rows))
+    return rows
+
+
+def journey(units, name):
+    repo = project(name, steps=0)
+    rows = hs_authority(repo, units)
+    v = View(P, repo.root)
+    text = v.rebuild()
+    return repo, v, rows, blocks(text)["JOURNEY"], text
+
+
+def purpose(label):
+    return f"{label} problemi vardı → {label} işlemi yapıldı → {label} sonucu oluştu"
+
+
+def nodes_of(block):
+    return re.findall(r"^(  - Revision: |- )\[([^\]]+)\]\((#[^)]+)\) — (.+)$", block, re.M)
+
+
+MARKS = re.compile(r" · (?:Needs refresh|\*\*Current position\*\*|revision of \S+)")
+unbold = lambda s: s.replace("**", "")  # noqa: E731
+
+seq_units = [(f"S{i}", f"Adım {i}", "SYNCED", purpose(f"S{i}")) for i in range(1, 4)]
+pt, vt, rows_t, jt, tt = journey(seq_units, "pt")
+check("T sequential: one top-level node per unit, seq order, no revision", [(p, l) for p, l, _, _ in nodes_of(jt)],
+      [("- ", "Adım 1"), ("- ", "Adım 2"), ("- ", "Adım 3")])
+check("T node = Problem → Action → **Result** from the record Purpose", nodes_of(jt)[0][3], "S1 problemi vardı → S1 işlemi yapıldı → **S1 sonucu oluştu**")
+check("T every node links its own HS section; anchors exist", ([h for _, _, h, _ in nodes_of(jt)], [h[1:] in vm.anchors_of(tt) for _, _, h, _ in nodes_of(jt)]),
+      ([f"#{r['record_id'].lower()}" for r in rows_t], [True] * 3))
+check("T current position = 08 §3.2 position (exactly one, last seq)", [l for _, l, _, t in nodes_of(jt) if t.endswith("· **Current position**")], ["Adım 3"])
+check("T Project Home links the journey; journey returns home; clean", ("[Project Journey](#project-journey)" in blocks(tt)["INDEX"],
+      jt.splitlines()[-2], vt.integrity(tt), RB.metrics(tt, "", SKILL)["links_broken"]), (True, "[↑ Project Home](#project-home)", [], 0))
+spec_fmt = (SKILL / "references" / "09_KNOWLEDGE_VIEW.md").read_text(encoding="utf-8").split("### 5.4 Project Journey", 1)[1].split("```text\n", 1)[1].split("```", 1)[0]
+tpl_j = tpl.split("<!-- SITL:JOURNEY:START -->\n", 1)[1].split("<!-- SITL:JOURNEY:END -->", 1)[0]
+check("T template JOURNEY block = 09 §5.4 format", tpl_j, spec_fmt)
+check("T journey sits between MODEL and Human Sync (09 §3 order)", tt.index("SITL:MODEL:END") < tt.index("SITL:JOURNEY:START") < tt.index("## Human Sync"), True)
+
+rev_units = [("Q1", "Kurulum (Q1)", "SYNCED", purpose("Q1")), ("Q2", "Test (Q2)", "SYNCED", purpose("Q2")),
+             ("Q2-R1", "Test düzeltmesi (Q2-R1)", "SYNCED", purpose("Q2-R1")), ("Q3", "Ayırma (Q3)", "SYNCED", purpose("Q3"))]
+_, _, _, jr_, _ = journey(rev_units, "ptr")
+check("T revisions: R unit nested under its parent, visually distinct", [(p, l) for p, l, _, _ in nodes_of(jr_)],
+      [("- ", "Kurulum (Q1)"), ("- ", "Test (Q2)"), ("  - Revision: ", "Test düzeltmesi (Q2-R1)"), ("- ", "Ayırma (Q3)")])
+
+stale_units = [rev_units[0], ("Q2", "Test (Q2)", "STALE", purpose("Q2")), rev_units[2]]
+_, _, _, js, _ = journey(stale_units, "pts")
+check("T stale unit: Needs refresh marker, still once; current on last seq", [(l, t.split("** · ", 1)[1]) for _, l, _, t in nodes_of(js)
+      if "** · " in t], [("Test (Q2)", "Needs refresh"), ("Test düzeltmesi (Q2-R1)", "**Current position**")])
+
+gap_units = [("Q1", "Kurulum (Q1)", "SYNCED", purpose("Q1")), ("Q2-R1", "Test düzeltmesi (Q2-R1)", "SYNCED", purpose("Q2-R1")),
+             ("Q3", "Ayırma (Q3)", "SYNCED", purpose("Q3"))]
+_, _, _, jg, _ = journey(gap_units, "ptg")
+check("T missing intermediate phase: no Q2 invented; orphan revision top-level, marked", ([(p, l) for p, l, _, _ in nodes_of(jg)],
+      "Q2)" in jg.replace("Q2-R1)", ""), "· revision of Q2" in jg), ([("- ", "Kurulum (Q1)"), ("- ", "Test düzeltmesi (Q2-R1)"), ("- ", "Ayırma (Q3)")], False, True))
+uns_units = [gap_units[0], ("Q2", "Test (Q2)", "UNSYNCED", "-"), gap_units[1], gap_units[2]]
+_, _, _, ju, _ = journey(uns_units, "ptu")
+check("T UNSYNCED parent: not a node, listed once as not yet synced; revision stays top-level",
+      ([l for _, l, _, _ in nodes_of(ju)], re.findall(r"^Not yet synced: .*$", ju, re.M), "· revision of Q2" in ju),
+      (["Kurulum (Q1)", "Test düzeltmesi (Q2-R1)", "Ayırma (Q3)"], ["Not yet synced: Test (Q2)"], True))
+
+multi_units = [("Q4", "Pipeline (Q4)", "SYNCED", purpose("Q4")), ("Q5", "Rapor (Q5)", "SYNCED", purpose("Q5")),
+               ("Q4-R1", "Komutlar (Q4-R1)", "SYNCED", purpose("Q4-R1")), ("Q4-R2", "Çıktılar (Q4-R2)", "SYNCED", purpose("Q4-R2")),
+               ("Q4-R3", "Metrikler (Q4-R3)", "SYNCED", purpose("Q4-R3"))]
+pm, vm_, rows_m, jm, tm = journey(multi_units, "ptm")
+check("T multiple revisions share one parent (even after a later phase); seq order inside the group",
+      [(p, l) for p, l, _, _ in nodes_of(jm)],
+      [("- ", "Pipeline (Q4)"), ("  - Revision: ", "Komutlar (Q4-R1)"), ("  - Revision: ", "Çıktılar (Q4-R2)"), ("  - Revision: ", "Metrikler (Q4-R3)"),
+       ("- ", "Rapor (Q5)")])
+_, _, _, jrr, _ = journey([("Q4", "Pipeline (Q4)", "SYNCED", purpose("Q4")), ("Q4-R1-R1", "Ek düzeltme (Q4-R1-R1)", "SYNCED", purpose("Q4-R1-R1")),
+                           ("Q4-R2", "Çıktılar (Q4-R2)", "SYNCED", purpose("Q4-R2")), ("Q4-R2-R1", "Çıktı düzeltmesi (Q4-R2-R1)", "SYNCED", purpose("Q4-R2-R1"))], "ptrr")
+check("T revision of a revision groups under the root node, also when the middle unit is absent", [(p, l, "revision of" in t) for p, l, _, t in nodes_of(jrr)],
+      [("- ", "Pipeline (Q4)", False), ("  - Revision: ", "Ek düzeltme (Q4-R1-R1)", False), ("  - Revision: ", "Çıktılar (Q4-R2)", False),
+       ("  - Revision: ", "Çıktı düzeltmesi (Q4-R2-R1)", False)])
+check("T current position may be a revision (highest seq)", [l for _, l, _, t in nodes_of(jm) if "**Current position**" in t], ["Metrikler (Q4-R3)"])
+check("T every synced unit exactly once", sorted(l for _, l, _, _ in nodes_of(jm)), sorted(r["label"] for r in rows_m))
+records = {f"#{r['record_id'].lower()}": (r["label"], purpose(r["work_unit_id"].split("#")[1])) for r in rows_m}
+check("T no unsupported claim: each node = label + record Purpose + fixed markers only",
+      [l for _, l, h, t in nodes_of(jm) if (l, unbold(MARKS.sub("", t))) != records[h]], [])
+check("T Downstream Impact claim never enters the journey", "bu yüzden" in jm, False)
+odd = [("X1", "Serbest (X1)", "SYNCED", "Tek cümlelik amaç, ok yok"), ("X2", "İki ok (X2)", "SYNCED", "a → b → c → d")]
+_, _, _, jo, _ = journey(odd, "pto")
+check("T Purpose not Problem → Action → Result: written as is, nothing bolded or split", [t.split(" · ")[0] for _, _, _, t in nodes_of(jo)],
+      ["Tek cümlelik amaç, ok yok", "a → b → c → d"])
+_, _, _, j0, t0 = journey([("Q1", "Kurulum (Q1)", "UNSYNCED", "-")], "pt0")
+check("T no synced unit: Yok., Not yet synced, back link; clean", (j0.splitlines()[3:8], vm_.integrity(tm)),
+      (["Yok.", "", "Not yet synced: Kurulum (Q1)", "", "[↑ Project Home](#project-home)"], []))
+check("T 02 §4 step ID per source", [vm.step_id(w) for w in ("phase-doc:docs/a.md#18Q-4-R1", "jira:ABC-44", "user:cache-redesign")],
+      ["18Q-4-R1", "ABC-44", "cache-redesign"])
+# derived only from Human Sync: graph, queue and context changes leave the journey unchanged
+vm_.f.write_text(tm, encoding="utf-8")
+write_graph(pm, 1, [node("KN-00000001", "Root", "ROOT")], [])
+pm.write(sm.CONTEXT_F, "# Project Sync Context\n\n## Current Position\n\n- Başka bir konum\n\n## Active Decisions\n\n- Uydurma karar\n")
+t_ind = vm_.rebuild()
+check("T journey independent of graph and context (MODEL changes, JOURNEY does not)",
+      (blocks(t_ind)["JOURNEY"] == jm, blocks(t_ind)["MODEL"] != blocks(tm)["MODEL"], "Uydurma karar" in blocks(t_ind)["JOURNEY"]), (True, True, False))
+# integrity: V-18 for wrong order / missing link / missing current; repair rewrites only JOURNEY
+tm = vm_.rebuild()
+vm_.f.write_text(tm, encoding="utf-8")
+
+
+def t_crafted(fn):
+    vm_.f.write_text(fn(tm), encoding="utf-8")
+    try:
+        return [c for c, _ in vm_.integrity(vm_.f.read_text(encoding="utf-8"))]
+    finally:
+        vm_.f.write_text(tm, encoding="utf-8")
+
+
+lines_m = jm.splitlines()
+swap = "\n".join(lines_m[:3] + [lines_m[7], lines_m[4], lines_m[5], lines_m[6], lines_m[3]] + lines_m[8:])
+check("T wrong order -> V-18", t_crafted(lambda t: t.replace(jm, swap)), ["V-18"])
+check("T revision ungrouped -> V-18", t_crafted(lambda t: t.replace("  - Revision: [Komutlar", "- [Komutlar")), ["V-18"])
+check("T current position lost -> V-18", t_crafted(lambda t: t.replace(" · **Current position**", "")), ["V-18"])
+check("T broken HS link in the journey -> V-01 + V-18", t_crafted(lambda t: t.replace(jm, jm.replace(f"]({nodes_of(jm)[0][2]})", "](#hs-0000beef)", 1))),
+      ["V-01", "V-18"])
+check("T invented journey line -> V-18", t_crafted(lambda t: t.replace("\n\n[↑ Project Home](#project-home)\n<!-- SITL:JOURNEY:END",
+      "\n- [Pipeline (Q4)](#" + rows_m[0]["record_id"].lower() + ") — karar alındı\n\n[↑ Project Home](#project-home)\n<!-- SITL:JOURNEY:END")), ["V-18"])
+vm_.f.write_text(tm.replace(jm, swap), encoding="utf-8")
+pre_b = blocks(vm_.f.read_text(encoding="utf-8"))
+t_res = vm_.repair()
+post_b = blocks(vm_.f.read_text(encoding="utf-8"))
+check("T V-18 repair rewrites only JOURNEY; == rebuild", (t_res, sorted(k for k in post_b if pre_b[k] != post_b[k]), vm_.f.read_text(encoding="utf-8") == tm),
+      (([("V-18", "WARNING")], "REPAIRED"), ["JOURNEY"], True))
+# legacy view (no JOURNEY): V-08, repair inserts it after MODEL
+vm_.f.write_text(re.sub(r"\n\n<!-- SITL:JOURNEY:START -->.*<!-- SITL:JOURNEY:END -->", "", tm, flags=re.S), encoding="utf-8")
+t_leg = [c for c, _ in vm_.integrity(vm_.f.read_text(encoding="utf-8"))]
+check("T legacy view without JOURNEY -> V-01, V-08; repair inserts it; == rebuild", (t_leg, vm_.repair()[1], vm_.f.read_text(encoding="utf-8") == tm),
+      (["V-01", "V-08"], "REPAIRED", True))
+# journey failure never touches Human Sync authority; view pre-image restored
+auth_t = {f.relative_to(pm.root).as_posix(): sha(f.read_bytes()) for f in sorted((pm.root / sm.SYNC).rglob("*")) if f.is_file()}
+vm_.f.write_text(tm.replace(jm, swap), encoding="utf-8")
+before_fail = vm_.f.read_bytes()
+try:
+    vm_.update(["JOURNEY", "INDEX"], fail_on="JOURNEY")
+    t_err = None
+except ViewBlocked as e:
+    t_err = str(e)
+check("T journey write failure: view pre-image restored, Human Sync state + records unchanged",
+      (t_err, vm_.f.read_bytes() == before_fail, {f.relative_to(pm.root).as_posix(): sha(f.read_bytes()) for f in sorted((pm.root / sm.SYNC).rglob("*")) if f.is_file()} == auth_t),
+      ("write error", True, True))
+# real sync run: the 09 §8 trigger keeps the journey current incrementally
+pj_ = project("ptj", steps=3)
+vj_ = View(P, pj_.root)
+sync(pj_, vj_)
+jj = blocks(vtext(pj_))["JOURNEY"]
+check("T real sync: journey written by the sync trigger; incremental == rebuild", ([l for _, l, _, _ in nodes_of(jj)], "**Current position**" in jj.splitlines()[5],
+      vtext(pj_) == vj_.rebuild()), (["Step 1", "Step 2", "Step 3"], True, True))
 
 report(RESULTS)

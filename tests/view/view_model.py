@@ -16,7 +16,7 @@ VIEW_F = "docs/learning/STAY_IN_THE_LOOP.md"
 GRAPH_F = "docs/learning/maps/SEMANTIC_GRAPH.md"
 QUEUE_F = "docs/learning/state/LEARNING_QUEUE.md"
 TICK = re.compile(r"`([^`]+)`")
-MARK = re.compile(r"^<!-- SITL:(INDEX|MODEL|MAP|DEBT|HS:HS-[0-9a-f]{8}|KN:KN-[0-9a-f]{8}):(START|END)((?: [a-z]+=\S+)*) -->$")
+MARK = re.compile(r"^<!-- SITL:(INDEX|MODEL|JOURNEY|MAP|DEBT|HS:HS-[0-9a-f]{8}|KN:KN-[0-9a-f]{8}):(START|END)((?: [a-z]+=\S+)*) -->$")
 HEAD_MARK = re.compile(r"^<!-- SITL:VIEW project_id=(\S+) -->$")
 HEADING = re.compile(r"^(#{1,6}) (.*)$")
 TITLE = "# Stay in the Loop — Project Knowledge"
@@ -101,6 +101,11 @@ class Protocol:
         skip = re.search(r"^- Block'un (.+) paragrafları gösterilmez", sm.section(p, "### 6.2 Artifact mapping"), re.M)
         self.block_skip = [re.escape(w) for w in TICK.findall(skip.group(1))] if skip else []
         self.debt_structural = bool(re.search(r"^- `DEBT` structural top-level destination", sm.section(p, "## 3. Structure"), re.M))
+        self.journey_structural = bool(re.search(r"^- `JOURNEY` structural top-level destination", sm.section(p, "## 3. Structure"), re.M))
+        jr = {r[0]: TICK.findall(r[1]) for r in sm.tables(sm.section(p, "### 5.4 Project Journey"))[0]}
+        rev = re.escape(jr["revision"][0]).replace("<parent>", "(.+)").replace("<n>", r"\d+")
+        self.journey = {"statuses": jr["node"][:-1], "order": jr["node"][-1], "field": jr["adım"][0],
+                        "revision": re.compile(f"^{rev}$"), "link": jr["link"][0]}
         self.plan = {TICK.findall(r[0])[0]: (TICK.findall(r[1]), TICK.findall(r[2]))
                      for r in sm.tables(sm.section(p, "## 9. Section-level retrieval"))[0]}
         self.reader_questions = [r[1] for r in sm.tables(sm.section(p, "### 13.1 Reader questions"))[0]]
@@ -116,7 +121,8 @@ class Protocol:
         self.block_map_prefix = re.search(r"^# (.+) — \[PARENT BLOCK\]$", cb, re.M).group(1)
         p08 = (skill / "references" / "08_HUMAN_SYNC_STATE.md").read_text(encoding="utf-8")
         row = {r[0].strip("`"): r[1] for r in sm.tables(sm.section(p08, "## 11. Sync-only run loop"))[0]}[Path(self.path).name]
-        self.sync_only_kinds = ["HS", "KN", "MAP", "DEBT", "MODEL", "INDEX"] if row == "YES" else re.findall(r"\b(HS|KN|MAP|DEBT|MODEL|INDEX)\b", row)
+        kinds = r"\b(HS|KN|MAP|DEBT|JOURNEY|MODEL|INDEX)\b"
+        self.sync_only_kinds = ["HS", "KN", "MAP", "DEBT", "JOURNEY", "MODEL", "INDEX"] if row == "YES" else re.findall(kinds, row)
         s07 = sm.section((skill / "references" / "07_INTEGRITY_CHECKS.md").read_text(encoding="utf-8"), "## V. Knowledge View Integrity")
         self.checks = {r[0]: r[2] for r in sm.tables(s07)[0]}
         t = skill / "templates"
@@ -207,6 +213,12 @@ def parts_of(text, level):
         if cur is not None:
             out[cur].append(line)
     return {k: "\n".join(v).strip() for k, v in out.items()}
+
+
+def step_id(work_unit_id):
+    """02 §4 native step ID: after '#' for phase-doc, after ':' otherwise."""
+    source, native = work_unit_id.split(":", 1)
+    return native.split("#", 1)[1] if source == "phase-doc" and "#" in native else native
 
 
 def mermaid_id(node_id):
@@ -477,7 +489,8 @@ class View:
         hs = [f"- [{r['label']}](#{r['record_id'].lower()})" + (" · needs refresh" if r["sync_status"] == "STALE" else "") for r in self.hs_rows(S)]
         kn = [f"- [{n['node_id']} — {n['canonical_name']}](#{n['node_id'].lower()}) · {' '.join(depth_list(n['available_depth']))}"
               for n in self.kn_nodes(S)]
-        start = f"**Start here:** [Project in 60 Seconds]({P.href(P.heading['MODEL'])}) · {part('Current Position', 'Where are we now?')}"
+        start = (f"**Start here:** [Project in 60 Seconds]({P.href(P.heading['MODEL'])}) · {part('Current Position', 'Where are we now?')} · "
+                 f"[Project Journey]({P.href(P.heading['JOURNEY'])})")
         arch = f"**Knowledge Architecture:** [Knowledge Map]({P.href(P.heading['MAP'])})"
         debt = (f"**Open Questions / Learning Debt:** {part('Open Questions', 'What is still unresolved?')} · "
                 f"[Open Learning Debt]({P.href(P.heading['DEBT'])})")
@@ -517,6 +530,60 @@ class View:
                    [x for p in layers["SNAPSHOT"] for x in ("", p)] + ["", "</details>"]
         return "\n".join(["<!-- SITL:MODEL:START -->", self.P.model_heading] + (out or ["", "Yok."]) + ["<!-- SITL:MODEL:END -->"])
 
+    def journey_tree(self, S):
+        """09 §5.4: [(top node, [revision nodes])] in order, orphan revisions top-level with their missing parent."""
+        J = self.P.journey
+        rows = sorted(S["rows"], key=lambda r: r[J["order"]])
+        nodes = [r for r in rows if r["sync_status"] in J["statuses"] and r["record_id"] != "-"]
+        by_step = {step_id(r["work_unit_id"]): r for r in nodes}
+
+        def parent(r):
+            cur = step_id(r["work_unit_id"])
+            while (m := J["revision"].match(cur)):
+                cur = m.group(1)
+                if cur in by_step:
+                    return by_step[cur]
+            return None
+
+        def root(r):
+            while (p := parent(r)) is not None:
+                r = p
+            return r
+
+        tops = [r for r in nodes if parent(r) is None]
+        return [(t, [r for r in nodes if r is not t and root(r) is t]) for t in tops], rows
+
+    def journey_line(self, row, last, top=False):
+        """One node line: label link, Purpose (Result bold when it is Problem → Action → Result), fixed markers only."""
+        J = self.P.journey
+        rec = parts_of(self.read_file(f"{sm.SYNC}/records/{row['record_id']}.md") or "", 2)
+        purpose = rec.get(J["field"], "").strip()
+        bits = purpose.split(" → ")
+        text = f"{bits[0]} → {bits[1]} → **{bits[2]}**" if len(bits) == 3 else purpose
+        href = J["link"].replace("xxxxxxxx", row["record_id"][3:].lower())
+        orphan = J["revision"].match(step_id(row["work_unit_id"])) if top else None
+        out = f"[{row['label']}]({href}) — {text}"
+        if row["sync_status"] == "STALE":
+            out += f" · {self.P.status_line['STALE']}"
+        if orphan:
+            out += f" · revision of {orphan.group(1)}"
+        return out + (" · **Current position**" if last else "")
+
+    def render_journey(self, S, rd):
+        """09 §5.4 Project Journey: Human Sync state rows + record Purpose only."""
+        rd.read("JOURNEY")
+        tree, rows = self.journey_tree(S)
+        position = max([t["seq"] for t, kids in tree] + [k["seq"] for _, kids in tree for k in kids], default=0)
+        lines = []
+        for top, kids in tree:
+            lines.append(f"- {self.journey_line(top, top['seq'] == position, top=True)}")
+            lines += [f"  - Revision: {self.journey_line(k, k['seq'] == position)}" for k in kids]
+        waiting = [r["label"] for r in rows if r["sync_status"] not in self.P.journey["statuses"] or r["record_id"] == "-"]
+        out = ["<!-- SITL:JOURNEY:START -->", self.P.heading["JOURNEY"], ""] + (lines or ["Yok."])
+        if waiting:
+            out += ["", "Not yet synced: " + ", ".join(waiting)]
+        return "\n".join(out + ["", self.P.home_link(), "<!-- SITL:JOURNEY:END -->"])
+
     def render_debt(self, S):
         rows = [f"- `{d['debt_id']}` — {d['concept']} · {d['priority']} · {d['work_unit_ids']}" for d in S["debts"] if d["debt_status"] == "OPEN"]
         return "\n".join(["<!-- SITL:DEBT:START -->", "## Open Learning Debt", ""] + (rows or ["Yok."]) + ["", self.P.home_link(), "<!-- SITL:DEBT:END -->"])
@@ -527,7 +594,7 @@ class View:
         if key.startswith("KN:"):
             return self.render_kn(S, next(n for n in S["nodes"] if n["node_id"] == key[3:]), rd)
         return {"MAP": lambda: self.render_map(S), "INDEX": lambda: self.render_index(S, rd), "DEBT": lambda: self.render_debt(S),
-                "MODEL": lambda: self.render_model(rd)}[key]()
+                "MODEL": lambda: self.render_model(rd), "JOURNEY": lambda: self.render_journey(S, rd)}[key]()
 
     def rebuild(self, rd=None):
         """09 §12: deterministic full build from authoritative state."""
@@ -536,6 +603,7 @@ class View:
         hs = [self.render_hs(S, r, rd) for r in self.hs_rows(S)]
         kn = [self.render_kn(S, n, rd) for n in self.kn_nodes(S)]
         parts = [TITLE, "", f"<!-- SITL:VIEW project_id={S['project_id']} -->", "", NOTE, "", self.render_index(S, rd), "", self.render_model(rd), "",
+                 self.render_journey(S, rd), "",
                  "## Human Sync", ""] + [x for b in hs for x in (b, "")] + ["## Learning", ""] + [x for b in kn for x in (b, "")] + \
                 [self.render_map(S), "", self.render_debt(S)]
         return "\n".join(parts) + "\n"
@@ -600,8 +668,8 @@ class View:
         if key in spans:
             s, e, _ = spans[key]
             lines[s: e + 1] = block.splitlines()
-        elif key == "DEBT":
-            at = spans["MAP"][1] + 1
+        elif key in ("DEBT", "JOURNEY"):
+            at = spans["MAP" if key == "DEBT" else "MODEL"][1] + 1
             lines[at:at] = [""] + block.splitlines()
         else:
             at = self.insertion_line(text, key, spans, S)
@@ -610,7 +678,7 @@ class View:
 
     # --- write (09 §10) ---
     def order_keys(self, keys):
-        rank = {"HS": 0, "KN": 0, "MAP": 1, "DEBT": 2, "MODEL": 3, "INDEX": 4}
+        rank = {"HS": 0, "KN": 0, "MAP": 1, "DEBT": 2, "JOURNEY": 3, "MODEL": 4, "INDEX": 5}
         return sorted(set(keys), key=lambda k: (rank[k.split(":")[0]], k))
 
     def update(self, keys, rd=None, sync_only=False, fail_on=None):
@@ -692,7 +760,7 @@ class View:
         post = {r["record_id"]: r for r in self.sources()["rows"] if r["record_id"] != "-"}
         pre = {r["record_id"]: (r["sync_status"], r["record_version"]) for r in pre_rows if r["record_id"] != "-"}
         keys = [f"HS:{k}" for k, r in post.items() if pre.get(k) != (r["sync_status"], r["record_version"])]
-        return self.update(keys + ["MODEL", "INDEX"], rd, sync_only=sync_only, fail_on=fail_on)
+        return self.update(keys + ["JOURNEY", "MODEL", "INDEX"], rd, sync_only=sync_only, fail_on=fail_on)
 
     def node_sig(self, S, n):
         by = {x["node_id"]: x for x in S["nodes"]}
@@ -834,8 +902,10 @@ class View:
             if self.broken_link_keys(text, spans):
                 add("V-01")
             want ={f"HS:{r['record_id']}" for r in self.hs_rows(S)} | {f"KN:{n['node_id']}" for n in self.kn_nodes(S)}
-            if want - set(spans) or (self.P.debt_structural and "DEBT" not in spans):
+            if want - set(spans) or (self.P.debt_structural and "DEBT" not in spans) or (self.P.journey_structural and "JOURNEY" not in spans):
                 add("V-08")
+            if self.journey_stale(text, spans, S):
+                add("V-18")
         else:
             found = [(c, s) for c, s in found if s == "FAIL"]
         return sorted(set(found))
@@ -849,9 +919,13 @@ class View:
                 n = nodes.get(key[3:])
                 if n and f"#### Where am I?\n\n{self.navigation(S, n)}\n\n" not in body:
                     out.append(key)
-            elif key.split(":")[0] in ("HS", "MAP", "DEBT") and body.splitlines()[-2] != self.P.home_link():
+            elif key.split(":")[0] in ("JOURNEY", "HS", "MAP", "DEBT") and body.splitlines()[-2] != self.P.home_link():
                 out.append(key)
         return out
+
+    def journey_stale(self, text, spans, S):
+        """07 V-18: JOURNEY section differs from the 09 §5.4 render of Human Sync state + record Purpose."""
+        return "JOURNEY" in spans and self.lines_of(text, spans["JOURNEY"]) != self.render_journey(S, Reader())
 
     def broken_link_keys(self, text, spans):
         """07 V-01: sections with an internal link to an anchor the file does not produce (GitHub -1, -2 suffixes included)."""
@@ -875,7 +949,7 @@ class View:
             return found, "REBUILT"
         spans = self.spans(text)
         want = [f"HS:{r['record_id']}" for r in self.hs_rows(S)] + [f"KN:{n['node_id']}" for n in self.kn_nodes(S)]
-        keys = [k for k in want + ["DEBT"] * self.P.debt_structural if k not in spans]
+        keys = [k for k in want + ["DEBT"] * self.P.debt_structural + ["JOURNEY"] * self.P.journey_structural if k not in spans]
         for k in want:
             if k in spans:
                 cur = self.lines_of(text, spans[k])
@@ -887,7 +961,7 @@ class View:
                     n = next(x for x in S["nodes"] if x["node_id"] == k[3:])
                     if spans[k][2].get("depth") != ";".join(depth_list(n["available_depth"])) or f"### {n['node_id']} — {n['canonical_name']}\n" not in cur + "\n":
                         keys.append(k)
-        keys += self.nav_stale(text, spans, S) + self.broken_link_keys(text, spans)
+        keys += self.nav_stale(text, spans, S) + self.broken_link_keys(text, spans) + ["JOURNEY"] * self.journey_stale(text, spans, S)
         self.update(keys + ["MAP", "INDEX"], rd)
         return found, "REPAIRED"
 

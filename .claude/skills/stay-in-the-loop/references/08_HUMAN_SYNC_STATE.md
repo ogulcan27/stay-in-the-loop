@@ -332,7 +332,7 @@ STOP
 | Artifact | Sync-only write |
 |---|---|
 | `docs/learning/sync/` | YES |
-| `STAY_IN_THE_LOOP.md` | Yalnız HS, MODEL, INDEX section'ları (`09` §8) |
+| `STAY_IN_THE_LOOP.md` | Yalnız HS, JOURNEY, MODEL, INDEX section'ları (`09` §8) |
 | `LEARNING_CONFIG.md` | Yalnız `project_id` (`06` §2.1 onayı) |
 | `COVERAGE_LEDGER.md` | NO |
 | `LEARNING_STATE.md` | NO |

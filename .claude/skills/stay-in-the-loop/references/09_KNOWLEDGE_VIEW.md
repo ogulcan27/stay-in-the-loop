@@ -91,10 +91,11 @@ STAY_IN_THE_LOOP.md (derived)  → human-facing projection
 | 1 | `VIEW` | `# Stay in the Loop — Project Knowledge` | config `project_id` |
 | 2 | `INDEX` | `## Project Home` | HS + KN section listesi + context part'ları |
 | 3 | `MODEL` | `## Project in 60 Seconds` | `sync/PROJECT_SYNC_CONTEXT.md` |
-| 4 | `HS` | `## Human Sync` → `### <label>` | state + record |
-| 5 | `KN` | `## Learning` → `### <node-id> — <canonical_name>` | graph + ULA artifact |
-| 6 | `MAP` | `## Knowledge Map` | graph |
-| 7 | `DEBT` | `## Open Learning Debt` | queue §B |
+| 4 | `JOURNEY` | `## Project Journey` | state + record Purpose (§5.4) |
+| 5 | `HS` | `## Human Sync` → `### <label>` | state + record |
+| 6 | `KN` | `## Learning` → `### <node-id> — <canonical_name>` | graph + ULA artifact |
+| 7 | `MAP` | `## Knowledge Map` | graph |
+| 8 | `DEBT` | `## Open Learning Debt` | queue §B |
 
 - Sıra sabittir. Format: `templates/KNOWLEDGE_VIEW_TEMPLATE.md`.
 - `## Human Sync` ve `## Learning` container heading'leridir. Marker dışında durur. Yeniden yazılmaz.
@@ -102,6 +103,7 @@ STAY_IN_THE_LOOP.md (derived)  → human-facing projection
 - Yeni HS section bir sonraki HS section'ından veya `## Learning` satırından önce eklenir.
 - Yeni KN section bir sonraki KN section'ından veya `MAP` START marker'ından önce eklenir.
 - `DEBT` structural top-level destination'dır. View varken her zaman durur. `OPEN` debt yoksa gövde `Yok.` olur. Eksik `DEBT` section `MAP` END marker'ından sonra eklenir.
+- `JOURNEY` structural top-level destination'dır. View varken her zaman durur. Eksik `JOURNEY` section `MODEL` END marker'ından sonra eklenir.
 - Human Sync ve Learning ayrı kalır. HS section'ı concept öğrenildi demek değildir (`08` §1).
 
 ### 3.1 Project Home
@@ -109,7 +111,7 @@ STAY_IN_THE_LOOP.md (derived)  → human-facing projection
 `INDEX` section'ı dosyanın giriş noktasıdır. Satır sırası sabittir:
 
 ```text
-**Start here:** [Project in 60 Seconds] · [Current Position]
+**Start here:** [Project in 60 Seconds] · [Current Position] · [Project Journey]
 **Human Sync** — HS section listesi
 **Learning** — KN section listesi
 **Knowledge Architecture:** [Knowledge Map]
@@ -119,7 +121,7 @@ STAY_IN_THE_LOOP.md (derived)  → human-facing projection
 - `Current Position` yalnız MODEL `Where are we now?` part'ı varsa link alır. `Open Questions` yalnız `What is still unresolved?` part'ı varsa link alır.
 - Bu nedenle MODEL yazan her write INDEX'i de yazar (§10 sırası).
 - HS listesi `seq` sırasıdır. KN listesi §3 section sırasıdır. Liste boşsa `- Yok.` yazılır.
-- HS, MAP ve DEBT section'ı END marker'ından önceki son satırda Project Home'a döner: `[↑ Project Home](#project-home)`.
+- JOURNEY, HS, MAP ve DEBT section'ı END marker'ından önceki son satırda Project Home'a döner: `[↑ Project Home](#project-home)`.
 - KN section'ı Project Home'a breadcrumb ile döner (§6.3).
 
 ### 3.2 Anchors
@@ -130,6 +132,7 @@ STAY_IN_THE_LOOP.md (derived)  → human-facing projection
 | `project-in-60-seconds` | `## Project in 60 Seconds` | heading |
 | `where-are-we-now` | `#### Where are we now?` | heading |
 | `what-is-still-unresolved` | `#### What is still unresolved?` | heading |
+| `project-journey` | `## Project Journey` | heading |
 | `knowledge-map` | `## Knowledge Map` | heading |
 | `open-learning-debt` | `## Open Learning Debt` | heading |
 | `hs-xxxxxxxx` | HS section | `<a id>` = lowercase `record_id` |
@@ -151,6 +154,7 @@ Marker satırı tek satırdır ve kendi satırında durur.
 <!-- SITL:VIEW project_id=<PRJ-xxxxxxxx> -->
 <!-- SITL:INDEX:START -->                 ... <!-- SITL:INDEX:END -->
 <!-- SITL:MODEL:START -->                 ... <!-- SITL:MODEL:END -->
+<!-- SITL:JOURNEY:START -->               ... <!-- SITL:JOURNEY:END -->
 <!-- SITL:HS:<HS-xxxxxxxx>:START v=<n> --> ... <!-- SITL:HS:<HS-xxxxxxxx>:END -->
 <!-- SITL:KN:<KN-xxxxxxxx>:START depth=<L1;L2> --> ... <!-- SITL:KN:<KN-xxxxxxxx>:END -->
 <!-- SITL:MAP:START -->                   ... <!-- SITL:MAP:END -->
@@ -251,6 +255,43 @@ HUMAN katmanında proje sembolü ilk geçtiği yerde tanımlıdır. Önce düz a
 - `Five things to remember` Invariants ve Active Decisions maddelerinden ilk `remember_max` maddeyi bu sırayla alır.
 - Bu maddeler SNAPSHOT'ta tekrar yazılmaz. SNAPSHOT yalnız kalan maddeleri gösterir.
 - Boş part gösterilmez. Bütün part'lar boşsa gövde `Yok.` olur.
+
+### 5.4 Project Journey
+
+`JOURNEY` section'ı şu soruyu cevaplar: Proje bugünkü durumuna nasıl geldi?
+Yalnız Human Sync authority'sinden türer: state `## Work Units` ve record Purpose. Başka kaynak okunmaz.
+
+| journey | kaynak |
+|---|---|
+| node | Record'u olan unit (`SYNCED`, `STALE`), `seq` sırası |
+| adım | Record `Purpose`: `Problem → Action → Result` (`03` §5, One-Sentence Summary) |
+| revision | Native step ID `<parent>-R<n>` |
+| current | `position` (`08` §3.2) |
+| link | HS section anchor'ı `#hs-xxxxxxxx` |
+
+```text
+## Project Journey
+
+- [<label>](#hs-xxxxxxxx) — <Problem> → <Action> → **<Result>**
+  - Revision: [<label>](#hs-xxxxxxxx) — <Problem> → <Action> → **<Result>**
+- [<label>](#hs-xxxxxxxx) — <Problem> → <Action> → **<Result>** · **Current position**
+
+Not yet synced: <label>, <label>
+
+[↑ Project Home](#project-home)
+```
+
+- Step ID = `work_unit_id` native ID'si (`02` §4). `phase-doc` için `#`'den sonraki kısım, diğer source'lar için `:`'den sonraki kısım.
+- Step ID `<P>-R<n>` ise unit `<P>` step ID'li node'un revision'ıdır. `<P>` node değilse `<P>`'nin parent'ı aranır. Revision satırı üst seviyedeki kök node'unun altında, kendi `seq` sırasıyla durur.
+- Parent node yoksa (state'te yok veya `UNSYNCED`) satır üst seviyede durur ve ` · revision of <P>` alır. Parent uydurulmaz.
+- Her node tam bir kez görünür. Üst seviye satırlar `seq` sırasıdır.
+- Purpose tam iki ` → ` ayracı taşıyorsa Result kalın yazılır. Taşımıyorsa Purpose olduğu gibi yazılır. Parça uydurulmaz.
+- Satır metni yalnız label, Purpose ve bu bölümdeki sabit işaretlerdir. Satırlar arasında yalnız sıra vardır; neden-sonuç yazılmaz.
+- `STALE` node ` · Needs refresh` alır (§5.1 status line). Eski Purpose güncel gibi sunulmaz.
+- `position` node'u ` · **Current position**` alır.
+- `UNSYNCED` unit node değildir. Varsa label'ları `seq` sırasıyla tek `Not yet synced:` satırında durur.
+- Node yoksa gövde `Yok.` olur.
+- Journey write Human Sync state'ini veya record'u değiştirmez. Journey hatası yalnız view write'ını geri alır (§10).
 
 ---
 
@@ -380,14 +421,14 @@ GLOBAL MAP (depth 1–2) → KN section → LOCAL MAP (children) → child KN se
 
 | trigger | sections |
 |---|---|
-| Human Sync record write (`08` §11.1, `08` §12) | HS (yeni / refresh), MODEL, INDEX |
-| Staleness state write (`08` §6, §6.1) | HS (status line), MODEL, INDEX |
+| Human Sync record write (`08` §11.1, `08` §12) | HS (yeni / refresh), JOURNEY, MODEL, INDEX |
+| Staleness state write (`08` §6, §6.1) | HS (status line), JOURNEY, MODEL, INDEX |
 | Map sync graph write (`05` §8) | KN (yeni / değişen depth / rename / navigation komşusu), parent KN (local map), MAP, INDEX |
 | Queue §B debt write (`03` §17, `06` §20) | DEBT |
 | Derived repair (`07` §L.3) | Yalnız V check'in gösterdiği section'lar |
 
 - Trigger dışındaki section okunmaz ve yazılmaz.
-- Sync-only run yalnız HS, MODEL ve INDEX yazar (`08` §11). KN, MAP ve DEBT yazmaz.
+- Sync-only run yalnız HS, JOURNEY, MODEL ve INDEX yazar (`08` §11). KN, MAP ve DEBT yazmaz.
 - View write authoritative write'tan sonra gelir. View hatası authoritative sonucu geri almaz.
 
 ---
@@ -403,6 +444,7 @@ STATE FIRST → TARGET → MINIMUM CONTEXT → RELEVANT SECTION
 | `HS` | `MARKERS`, `INDEX`, `TARGET`, `DEP_SECTIONS` | `WHOLE_VIEW`, `OTHER_SECTIONS` |
 | `KN` | `MARKERS`, `INDEX`, `TARGET`, `DEP_SECTIONS` | `WHOLE_VIEW`, `OTHER_SECTIONS` |
 | `MAP` | `MARKERS`, `TARGET` | `WHOLE_VIEW`, `OTHER_SECTIONS` |
+| `JOURNEY` | `MARKERS`, `TARGET` | `WHOLE_VIEW`, `OTHER_SECTIONS` |
 | `WRITE` | `MARKERS`, `TARGET` | `WHOLE_VIEW`, `OTHER_SECTIONS` |
 
 | code | anlam |
@@ -429,7 +471,7 @@ BUILD       yeni section metni bellekte
 ↓
 INTEGRITY   07 §V candidate üzerinde
 ↓
-WRITE       content section'ları → MAP → DEBT → MODEL → INDEX
+WRITE       content section'ları → MAP → DEBT → JOURNEY → MODEL → INDEX
 ↓
 VERIFY      07 §V yazılmış dosya üzerinde
 ```
@@ -536,7 +578,7 @@ Yeni bir presentation değişikliği bu sözleşmeye göre değerlendirilir. Ger
 
 | domain | sections | role |
 |---|---|---|
-| `HUMAN_SYNC` | `MODEL`, `HS` | Project comprehension: projede ne oldu |
+| `HUMAN_SYNC` | `MODEL`, `JOURNEY`, `HS` | Project comprehension: projede ne oldu |
 | `LEARNING` | `KN`, `MAP`, `DEBT` | Technical learning: reusable kavram |
 
 - İki domain ayrı navigation alanıdır. Bir HS section'ını okumak kavramı öğrenmek değildir (§3, `08` §1).
