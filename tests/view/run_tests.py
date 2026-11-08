@@ -388,9 +388,11 @@ light(pi, LIGHT_A, "x", L_LIGHT)
 vi = View(P, pi.root)
 vi.update([])
 imap = blocks(vtext(pi))["MAP"]
-check("I long label shortened, DEBT tagged, NEXT edge drawn", ("…" in imap, long_name not in imap, "Next Step (DEBT) (KN-00000003)" in imap,
-                                                            "KN_00000002 -. NEXT .-> KN_00000003" in imap), (True, True, True, True))
-check("I global map shows only hierarchy + NEXT (no USES)", "USES" in imap, False)
+imer = vm.mermaid_blocks(imap + "\n")[0]
+check("I long label shortened, DEBT tagged, NEXT edge drawn", ("…" in imer, long_name not in imer, "Next Step (DEBT) (KN-00000003)" in imer,
+                                                            "KN_00000002 -. NEXT .-> KN_00000003" in imer), (True, True, True, True))
+check("I global map draws the semantic USES edge, NEXT stays dotted (VIS-04)",
+      ("KN_00000002 -- USES --> KN_00000003" in imer, "-- NEXT -->" in imer), (True, False))
 check("I DEBT node: no Learning section, appears in map", ("SITL:KN:KN-00000003" in vtext(pi), "KN_00000003" in imap), (False, True))
 
 # Test J - recursive zoom: global map + local maps (spec 43)
@@ -429,7 +431,7 @@ check("J lesson text once per concept section", all(b.count("Skor yanlış iyi g
 check("J related concepts link to sections", "- USES → [Duration Model](#kn-00000040)" in jb["KN:KN-00000020"], True)
 
 # Test K - 07 §V integrity, candidate safety, write failure (spec 33, 34)
-check("K 18 V checks", sorted(P.checks), [f"V-{i:02d}" for i in range(1, 19)])
+check("K 20 V checks", sorted(P.checks), [f"V-{i:02d}" for i in range(1, 21)])
 check("K structural / misleading checks FAIL", sorted(c for c, s in P.checks.items() if s == "FAIL"),
       ["V-02", "V-03", "V-04", "V-05", "V-09", "V-10", "V-12", "V-13"])
 base = vtext(pd)
@@ -710,11 +712,11 @@ q0, qt, qg = q_files(), vtext(pq), (pq.root / GRAPH_F).read_text(encoding="utf-8
 qm = RB.metrics(qt, qg, SKILL)
 check("Q baseline tool reports exactly the 09 §13.2 metrics", list(qm), P.metrics)
 check("Q baseline fixture structure", qm, {
-    "lines_total": 273, "lines_visible": 118, "lines_collapsed": 12, "details_blocks": 7, "details_max_depth": 1, "hs_units": 3, "kn_concepts": 2,
-    "graph_nodes": 4, "graph_edges": 2, "graph_edges_by_relation": "NEXT=1; USES=1", "links_internal": 29, "links_broken": 0,
+    "lines_total": 286, "lines_visible": 125, "lines_collapsed": 12, "details_blocks": 7, "details_max_depth": 1, "hs_units": 3, "kn_concepts": 2,
+    "graph_nodes": 4, "graph_edges": 2, "graph_edges_by_relation": "NEXT=1; USES=1", "links_internal": 35, "links_broken": 0,
     "links_from_index": 10, "links_from_hs": 3, "links_from_kn": 10, "kn_without_outgoing_link": 0, "maps_global": 1,
     "maps_local_structured": 4, "maps_local_by_source": "BLOCK=2; CONCEPT_L0=2; GRAPH=0", "maps_local_mermaid": 0,
-    "global_map_edges_by_kind": "HIERARCHY=3; NEXT=1"})
+    "global_map_edges_by_kind": "HIERARCHY=3; NEXT=1; RELATION=1"})
 check("Q local map sources = 09 §13.2 source table", [x.split("=")[0] for x in qm["maps_local_by_source"].split("; ")], sorted(P.local_sources))
 check("Q existing ASCII LOCAL MAP blocks (HSMM shape) are local maps", re.findall(r"^##### (LOCAL MAP — .+)$", qt, re.M),
       ["LOCAL MAP — B2 Üretim Döngüsü", "LOCAL MAP — B4 Süre Aileleri"])
@@ -862,17 +864,17 @@ old = re.sub(r"\n\n(?:Parent|Reading order) .*(?=\n)|\n\nParent: .*(?=\n)", "", 
 old = re.sub(r"\n\n<!-- SITL:JOURNEY:START -->.*<!-- SITL:JOURNEY:END -->", "", old, flags=re.S)
 rf.write_text(old, encoding="utf-8")
 old_found = vr.integrity(vtext(pr))
-check("R pre-VIS-02 view (no JOURNEY) -> V-01, V-08, V-17; repair == rebuild", (old_found, vr.repair()[1], vtext(pr) == base_r),
-      ([("V-01", "WARNING"), ("V-08", "WARNING"), ("V-17", "WARNING")], "REPAIRED", True))
+check("R pre-VIS-02 view (no JOURNEY) -> V-01, V-08, V-17, V-20; repair == rebuild", (old_found, vr.repair()[1], vtext(pr) == base_r),
+      ([("V-01", "WARNING"), ("V-08", "WARNING"), ("V-17", "WARNING"), ("V-20", "WARNING")], "REPAIRED", True))
 # legacy view without DEBT (HSMM shape): zero OPEN debt, repair inserts the structural DEBT destination
 legacy = re.sub(r"\n\n<!-- SITL:DEBT:START -->.*<!-- SITL:DEBT:END -->", "", old, flags=re.S)
 rf.write_text(legacy, encoding="utf-8")
 lg_found, lg_broken = vr.integrity(vtext(pr)), RB.metrics(vtext(pr), (pr.root / GRAPH_F).read_text(encoding="utf-8"), SKILL)["links_broken"]
 lg_res = vr.repair()[1]
 lg = vtext(pr)
-check("R legacy view without DEBT / JOURNEY, zero OPEN debt -> V-01, V-08, V-17; 2 broken links",
+check("R legacy view without DEBT / JOURNEY, zero OPEN debt -> V-01, V-08, V-17, V-20; 2 broken links",
       ("SITL:DEBT" in legacy, [d for d in vr.sources()["debts"] if d["debt_status"] == "OPEN"], lg_found, lg_broken),
-      (False, [], [("V-01", "WARNING"), ("V-08", "WARNING"), ("V-17", "WARNING")], 2))
+      (False, [], [("V-01", "WARNING"), ("V-08", "WARNING"), ("V-17", "WARNING"), ("V-20", "WARNING")], 2))
 check("R legacy repair inserts DEBT (Yok. + back link); links_broken 0; clean; == rebuild",
       (lg_res, blocks(lg)["DEBT"].splitlines()[1:-1], RB.metrics(lg, (pr.root / GRAPH_F).read_text(encoding="utf-8"), SKILL)["links_broken"],
        vr.integrity(lg), lg == base_r),
@@ -1017,7 +1019,7 @@ s_old = re.sub(r"\n\n<!-- SITL:DEBT:START -->.*<!-- SITL:DEBT:END -->", "", s_ol
 s_found = [c for c, _ in vs.integrity(vtext(ps))]
 s_res = vs.repair()[1]
 s_new = vtext(ps)
-check("S pre-VIS-02 Full ULA view -> V-01, V-08, V-17", s_found, ["V-01", "V-08", "V-17"])
+check("S pre-VIS-02 Full ULA view -> V-01, V-08, V-17, V-20", s_found, ["V-01", "V-08", "V-17", "V-20"])
 check("S migration keeps the learning body, adds navigation; clean; == rebuild",
       (s_res, learn_body(s_new) == learn_body(s_old), "\nReading order — Next: [Duration Lattice](#kn-000000c2)\n" in s_new,
        RB.metrics(s_new, (ps.root / GRAPH_F).read_text(encoding="utf-8"), SKILL)["links_broken"], vs.integrity(s_new), s_new == st),
@@ -1185,5 +1187,224 @@ sync(pj_, vj_)
 jj = blocks(vtext(pj_))["JOURNEY"]
 check("T real sync: journey written by the sync trigger; incremental == rebuild", ([l for _, l, _, _ in nodes_of(jj)], "**Current position**" in jj.splitlines()[5],
       vtext(pj_) == vj_.rebuild()), (["Step 1", "Step 2", "Step 3"], True, True))
+
+# Test U - semantic Knowledge Map (09 §7.1, §7.3, §13.4; 07 V-19, V-20; CLS-5 / VIS-04)
+ROOT_U = "KN-00000001"
+
+
+def cnode(nid, name, parent=ROOT_U, depth="L1", **kw):
+    return node(nid, name, parent=parent, depth=depth, arts=LIGHT_A if depth != "-" else "-", **kw)
+
+
+def u_view(name, nodes, edges):
+    pu = project(name, steps=1)
+    light(pu, LIGHT_A, "x", L_LIGHT)
+    write_graph(pu, 1, [node(ROOT_U, "Project Root", "ROOT")] + nodes, edges)
+    v = View(P, pu.root)
+    v.update([])
+    return pu, v, blocks(vtext(pu))["MAP"]
+
+
+def mer(block):
+    return vm.mermaid_blocks(block + "\n")[0]
+
+
+def drawn(block):
+    """Labelled Mermaid edges as (source, style, relation, target) node-ID tuples."""
+    return [(f"KN-{s}", st, r, f"KN-{t}") for s, st, r, t in re.findall(r"^    KN_([0-9a-f]{8}) (--|-\.) ([A-Z_]+) (?:-->|\.->) KN_([0-9a-f]{8})$", mer(block), re.M)]
+
+
+def line(block, head):
+    return next((l for l in block.splitlines() if l.startswith(head)), None)
+
+
+def items(block, head):
+    """'- ...' lines under a bold list header."""
+    part = block.split(head, 1)[1] if head in block else ""
+    return [l for l in part.split("\n\n", 2)[1].splitlines() if l.startswith("- ")] if part else []
+
+
+A, B, C, D, E = "KN-000000a1", "KN-000000a2", "KN-000000a3", "KN-000000a4", "KN-000000a5"
+# simple chain
+pu1, vu1, m1 = u_view("pu1", [cnode(A, "Alpha"), cnode(B, "Beta"), cnode(C, "Gamma")],
+                      [edge("KE-0001", A, "USES", B), edge("KE-0002", B, "USES", C), edge("KE-0003", A, "NEXT", B), edge("KE-0004", B, "NEXT", C)])
+check("U chain: semantic edges drawn solid + labelled, source → target, edge_id order",
+      [d for d in drawn(m1) if d[1] == "--"], [(A, "--", "USES", B), (B, "--", "USES", C)])
+check("U chain: NEXT drawn dotted only, never as a dependency", ([d for d in drawn(m1) if d[2] == "NEXT"], "-- NEXT -->" in m1),
+      ([(A, "-.", "NEXT", B), (B, "-.", "NEXT", C)], False))
+check("U chain: hierarchy = primary parent_id, unlabelled", re.findall(r"^    KN_(\w+) --> KN_(\w+)$", mer(m1), re.M),
+      [("00000001", "000000a1"), ("00000001", "000000a2"), ("00000001", "000000a3")])
+check("U chain: Mermaid static check", vm.mermaid_errors(mer(m1)), [])
+check("U chain: Relationships list = semantic edges with section links",
+      items(m1, "**Relationships:**"), ["- [Alpha](#kn-000000a1) — USES → [Beta](#kn-000000a2)", "- [Beta](#kn-000000a2) — USES → [Gamma](#kn-000000a3)"])
+check("U chain: Reading order is one chain, marked navigation only",
+      (items(m1, "**Reading order**"), "**Reading order** (navigation only, not a dependency):" in m1),
+      (["- [Alpha](#kn-000000a1) → [Beta](#kn-000000a2) → [Gamma](#kn-000000a3)"], True))
+check("U chain: NEXT never listed as a relationship", any("NEXT" in l for l in items(m1, "**Relationships:**")), False)
+check("U legend = drawn edge kinds from 09 §7.1, in table order", line(m1, "**Legend:**"),
+      "**Legend:** `-->` primary parent · `-- <RELATION> -->` semantic relation, source → target · `-. <RELATION> .->` reading order only, not a dependency")
+check("U lines in 09 §7.1 order", [h for h in P.map_lines if h in m1], ["**Legend:**", "**Concepts:**", "**Relationships:**", "**Reading order**"])
+check("U chain: view clean; incremental == rebuild; render deterministic", (vu1.integrity(vtext(pu1)), vtext(pu1) == vu1.rebuild(),
+      vu1.render_map(vu1.sources()) == vu1.render_map(vu1.sources())), ([], True, True))
+check("U map carries no lesson / meaning text", ("Kısa anlam" in m1, "Rol." in m1, "Skor yanlış" in m1), (False, False, False))
+# shared dependency
+_, _, m2 = u_view("pu2", [cnode(A, "Alpha"), cnode(B, "Beta"), cnode(C, "Core")],
+                  [edge("KE-0001", A, "DEPENDS_ON", C), edge("KE-0002", B, "DEPENDS_ON", C)])
+check("U shared dependency: both edges into the shared target", drawn(m2), [(A, "--", "DEPENDS_ON", C), (B, "--", "DEPENDS_ON", C)])
+check("U no navigation edges: no Reading order line, legend without NEXT", ("**Reading order**" in m2, "reading order only" in m2), (False, False))
+# multiple parents: primary parent_id + secondary PART_OF
+pu3, vu3, m3 = u_view("pu3", [cnode(A, "Alpha"), cnode(B, "Beta"), cnode(D, "Delta", parent=A)], [edge("KE-0001", D, "PART_OF", B)])
+check("U multiple parents: primary --> from parent_id, secondary -- PART_OF -->",
+      ("    KN_000000a1 --> KN_000000a4" in m3, drawn(m3), "    KN_000000a2 --> KN_000000a4" in m3), (True, [(D, "--", "PART_OF", B)], False))
+check("U multiple parents: legend shows also part of; Relationships lists PART_OF",
+      ("`-- PART_OF -->` also part of" in m3, items(m3, "**Relationships:**")), (True, ["- [Delta](#kn-000000a4) — PART_OF → [Beta](#kn-000000a2)"]))
+check("U multiple parents: breadcrumb unchanged (primary only), Also part of kept",
+      ("→ [Alpha](#kn-000000a1) → **Delta**" in blocks(vtext(pu3))["KN:KN-000000a4"], "Also part of: [Beta](#kn-000000a2)" in blocks(vtext(pu3))["KN:KN-000000a4"]),
+      (True, True))
+# evidence + comparison (stored token COMPARED_WITH)
+_, _, m4 = u_view("pu4", [cnode(A, "Model"), cnode(B, "Test"), cnode(C, "Rival")],
+                  [edge("KE-0001", B, "EVIDENCE_FOR", A), edge("KE-0002", A, "COMPARED_WITH", C)])
+check("U evidence: direction source (evidence) → target (claim)", drawn(m4)[0], (B, "--", "EVIDENCE_FOR", A))
+check("U comparison: stored COMPARED_WITH drawn; no COMPARES_WITH / EVALUATED_BY anywhere",
+      (drawn(m4)[1], "COMPARES_WITH" in m4, "EVALUATED_BY" in m4), ((A, "--", "COMPARED_WITH", C), False, False))
+check("U vocabulary unchanged: 12 tokens, COMPARED_WITH in, COMPARES_WITH / EVALUATED_BY out",
+      (len(P.relation_types), "COMPARED_WITH" in P.relation_types, "COMPARES_WITH" in P.relation_types, "EVALUATED_BY" in P.relation_types), (12, True, False, False))
+check("U every SEMANTIC relation of 09 §13.4 has the semantic style; NAVIGATION the dotted style",
+      (sorted(P.edge_classes["SEMANTIC"] + P.edge_classes["NAVIGATION"] + ["PART_OF"]) == sorted(P.relation_types),
+       [m for r, _, m, _ in P.map_edges]), (True, ["-->", "-- PART_OF -->", "-- <RELATION> -->", "-. <RELATION> .->"]))
+# allowed DEPENDS_ON cycle
+pu5, vu5, m5 = u_view("pu5", [cnode(A, "Alpha"), cnode(B, "Beta")], [edge("KE-0001", A, "DEPENDS_ON", B), edge("KE-0002", B, "DEPENDS_ON", A)])
+check("U DEPENDS_ON cycle allowed: both edges drawn, no orphan, view clean",
+      (drawn(m5), "**Orphan concepts:**" in m5, vu5.integrity(vtext(pu5))), ([(A, "--", "DEPENDS_ON", B), (B, "--", "DEPENDS_ON", A)], False, []))
+# orphans vs depth-omitted nodes
+S_, X, Y, Z, W, G1, G2, G3 = "KN-000000b0", "KN-000000b1", "KN-000000b2", "KN-000000b3", "KN-000000b4", "KN-000000c1", "KN-000000c2", "KN-000000c3"
+pu6, vu6, m6 = u_view("pu6", [cnode(G1, "Level One"), cnode(G2, "Level Two", parent=G1), cnode(G3, "Level Three", parent=G2),
+                              cnode(S_, "Old Parent", status="SUPERSEDED"), cnode(X, "Unplaced", parent="-"), cnode(Y, "Lost", parent="KN-0000dead"),
+                              cnode(Z, "Stranded", parent=S_), cnode(W, "Under Unplaced", parent=X)], [])
+check("U orphans: unplaced, missing parent, superseded parent, orphan ancestor; deep valid node not orphan", line(m6, "**Orphan concepts:**"),
+      "**Orphan concepts:** [Unplaced](#kn-000000b1) (unplaced) · [Lost](#kn-000000b2) (missing parent) · [Stranded](#kn-000000b3) (superseded parent) · "
+      "[Under Unplaced](#kn-000000b4) (orphan ancestor)")
+check("U depth-omitted node is a deeper concept, not an orphan", ("Level Three" in line(m6, "**Orphan concepts:**"), "KN_000000c3" in m6,
+      line(m6, "**Deeper concepts:**"), items(m6, "**Deeper concepts:**")),
+      (False, False, "**Deeper concepts:** 1 not drawn (map depth 2, at most 30 nodes), by primary parent:", ["- [Level Two](#kn-000000c2) → [Level Three](#kn-000000c3)"]))
+check("U orphans -> V-19 (report only); repair leaves the view unchanged", ([c for c, _ in vu6.integrity(vtext(pu6))], vu6.repair()[1]), (["V-19"], "NOTHING"))
+_, vu7, m7 = u_view("pu7", [cnode(A, "Alpha", parent=B), cnode(B, "Beta", parent=A)], [])
+check("U prohibited hierarchy cycle: detected, both marked hierarchy cycle", line(m7, "**Orphan concepts:**"),
+      "**Orphan concepts:** [Alpha](#kn-000000a1) (hierarchy cycle) · [Beta](#kn-000000a2) (hierarchy cycle)")
+check("U orphan state table = 09 §7.3", sorted(P.orphan), sorted(["UNPLACED", "MISSING_PARENT", "SUPERSEDED_PARENT", "CYCLE", "ORPHAN_ANCESTOR"]))
+# nodes without a concept section; SUPERSEDED and missing endpoints; duplicate edge
+pu8, vu8, m8 = u_view("pu8", [cnode(A, "Alpha"), cnode(B, "Owed", depth="-", status="DEBT"), cnode(C, "Not Yet", depth="-"),
+                              cnode(D, "Gone", status="SUPERSEDED")],
+                      [edge("KE-0001", A, "USES", C), edge("KE-0002", A, "USES", C), edge("KE-0003", A, "USES", D), edge("KE-0004", A, "REQUIRES", "KN-0000dead"),
+                       edge("KE-0005", C, "REQUIRES", B)])
+check("U Concepts: link only where a KN section exists; root / DEBT / no section marked, no invented anchor", line(m8, "**Concepts:**"),
+      "**Concepts:** Project Root (root) · [Alpha](#kn-000000a1) · Owed (DEBT) · Not Yet (no section)")
+check("U no link to a node without a section; links resolve", (re.findall(r"\(#(kn-[0-9a-f]+)\)", m8), vu8.broken_link_keys(vtext(pu8), View.spans(vtext(pu8)))),
+      (["kn-000000a1", "kn-000000a1"], []))
+check("U duplicate edge once; SUPERSEDED / missing endpoint never drawn or listed",
+      (drawn(m8), items(m8, "**Relationships:**")),
+      ([(A, "--", "USES", C), (C, "--", "REQUIRES", B)], ["- [Alpha](#kn-000000a1) — USES → Not Yet", "- Not Yet — REQUIRES → Owed (DEBT)"]))
+# large graph: depth reduced, nothing lost
+big = [cnode(f"KN-000001{d:02x}", f"Domain {d}") for d in range(5)]
+big += [cnode(f"KN-00000{d + 2:x}{k:02x}", f"Topic {d + 2}.{k}", parent=f"KN-000001{d:02x}") for d in range(5) for k in range(7)]
+big_e = [edge("KE-0001", "KN-00000200", "USES", "KN-00000301"), edge("KE-0002", "KN-00000100", "NEXT", "KN-00000101"),
+         edge("KE-0003", "KN-00000201", "NEXT", "KN-00000202")]
+pu9, vu9, m9 = u_view("pu9", big, big_e)
+shown9 = re.findall(r'^    KN_([0-9a-f]{8})\["', mer(m9), re.M)
+check("U large graph (41 nodes > global_map_max_nodes): depth reduced to 1", (len(big) + 1 > P.int_rule("global_map_max_nodes"), len(shown9),
+      line(m9, "**Deeper concepts:**")), (True, 6, "**Deeper concepts:** 35 not drawn (map depth 1, at most 30 nodes), by primary parent:"))
+check("U large graph: every hidden concept listed once, under its primary parent, parents in map order",
+      [(l.split(" → ")[0], l.count("](#kn-")) for l in items(m9, "**Deeper concepts:**")], [(f"- [Domain {d}](#kn-000001{d:02x})", 8) for d in range(5)])
+check("U large graph: edges between hidden nodes not drawn but kept in Relationships / Reading order",
+      (drawn(m9), items(m9, "**Relationships:**"), items(m9, "**Reading order**")),
+      ([(f"KN-00000100", "-.", "NEXT", "KN-00000101")], ["- [Topic 2.0](#kn-00000200) — USES → [Topic 3.1](#kn-00000301)"],
+       ["- [Domain 0](#kn-00000100) → [Domain 1](#kn-00000101)", "- [Topic 2.1](#kn-00000201) → [Topic 2.2](#kn-00000202)"]))
+lm9 = vm.mermaid_blocks(blocks(vtext(pu9))["KN:KN-00000100"] + "\n")
+check("U large graph: hidden level reachable through the domain section's local map", (len(lm9), "KN_00000206" in lm9[0]), (1, True))
+check("U large graph: valid Mermaid; view clean", (vm.mermaid_errors(mer(m9)), vu9.integrity(vtext(pu9))), ([], []))
+_, _, m10 = u_view("pu10", [cnode(f"KN-000002{k:02x}", f"C{k}") for k in range(29)], [])
+check("U boundary: exactly global_map_max_nodes nodes keeps depth 2", (len(re.findall(r'^    KN_\w+\["', mer(m10), re.M)), "**Deeper concepts:**" in m10), (30, False))
+_, _, m11 = u_view("pu11", [cnode(f"KN-000002{k:02x}", f"C{k}") for k in range(31)], [])
+check("U depth 1 still too wide (R1): first global_map_max_nodes in map order drawn, the rest listed under the root",
+      (len(re.findall(r'^    KN_\w+\["', mer(m11), re.M)), "KN_0000021c" in mer(m11), "KN_0000021d" in mer(m11), items(m11, "**Deeper concepts:**")),
+      (30, True, False, ["- Project Root (root) → [C29](#kn-0000021d) · [C30](#kn-0000021e)"]))
+# R1: the drawn node count is bounded for any width; nothing is lost
+r1 = {}
+for w in (29, 30, 31, 35, 60):
+    _, vr, mr = u_view(f"pr1_{w}", [cnode(f"KN-00000{k:03x}", f"W{k}") for k in range(0x100, 0x100 + w)], [])
+    r1[w] = (len(re.findall(r'^    KN_\w+\["', mer(mr), re.M)), sum(l.count("](#kn-") for l in items(mr, "**Deeper concepts:**")))
+check("U R1 bounded: drawn <= global_map_max_nodes for every root width; drawn + listed = all live nodes",
+      {w: (d <= P.int_rule("global_map_max_nodes"), d + h) for w, (d, h) in r1.items()}, {w: (True, w + 1) for w in r1})
+# R1 with edges and orphans: truncated endpoints keep their edges in the lists; unplaced orphans stay orphans
+X1, X2 = "KN-000000e1", "KN-000000e2"
+wide = [cnode(X1, "Loose One", parent="-"), cnode(X2, "Loose Two", parent="-")] + [cnode(f"KN-00000{k:03x}", f"W{k}") for k in range(0x100, 0x100 + 35)]
+pu12, vu12, m12 = u_view("pu12", wide, [edge("KE-0001", "KN-00000100", "USES", "KN-00000122"), edge("KE-0002", "KN-00000121", "NEXT", "KN-00000122")])
+check("U R1 truncation: edge to a truncated node not drawn, kept in Relationships / Reading order; orphans listed, not deeper",
+      (drawn(m12), items(m12, "**Relationships:**"), items(m12, "**Reading order**"), line(m12, "**Orphan concepts:**"),
+       [l.split(" → ")[0] for l in items(m12, "**Deeper concepts:**")], sum(l.count("](#kn-") for l in items(m12, "**Deeper concepts:**"))),
+      ([], ["- [W256](#kn-00000100) — USES → [W290](#kn-00000122)"], ["- [W289](#kn-00000121) → [W290](#kn-00000122)"],
+       "**Orphan concepts:** [Loose One](#kn-000000e1) (unplaced) · [Loose Two](#kn-000000e2) (unplaced)", ["- Project Root (root)"], 8))
+check("U R1 truncation: valid Mermaid; only V-19 (the two unplaced orphans); incremental == rebuild", (vm.mermaid_errors(mer(m12)), [c for c, _ in vu12.integrity(vtext(pu12))], vtext(pu12) == vu12.rebuild()),
+      ([], ["V-19"], True))
+# R2: mixed fan-out; parents with 1-2 hidden children have no local map; hidden children carry no edges
+dom = [cnode(f"KN-000001{d:02x}", f"Domain {d}") for d in range(6)]
+fan = {0: 12, 1: 12, 2: 2, 3: 1, 4: 0, 5: 3}
+leaf = [cnode(f"KN-0000{d + 2:x}0{k:02x}", f"Topic {d}.{k}", parent=f"KN-000001{d:02x}") for d, n in fan.items() for k in range(n)]
+deep = [cnode("KN-00000900", "Deep Under 2.0", parent="KN-00004000"), cnode("KN-00000901", "No Section Under 3.0", parent="KN-00005000", depth="-")]
+pu13, vu13, m13 = u_view("pu13", dom + leaf + deep, [edge("KE-0001", "KN-00002000", "NEXT", "KN-00002001")])
+t13, S13 = vtext(pu13), vu13.sources()
+hidden13 = [n["node_id"] for n in S13["nodes"] if f'{vm.mermaid_id(n["node_id"])}["' not in mer(m13)]
+local13 = sorted(k for k, b in blocks(t13).items() if k.startswith("KN:") and vm.mermaid_blocks(b + "\n"))
+check("U R2 fixture: depth reduced to 1; local maps only where >= local_map_min_children (unchanged rule)",
+      (len(hidden13), local13), (32, ["KN:KN-00000100", "KN:KN-00000101", "KN:KN-00000105"]))
+listed13 = [x for l in items(m13, "**Deeper concepts:**") for x in l.split(" → ", 1)[1].split(" · ")]
+check("U R2: every hidden concept listed exactly once in Deeper concepts",
+      (len(listed13), len(set(listed13)), all(vu13.map_name(S13, n) in listed13 for n in S13["nodes"] if n["node_id"] in hidden13)), (32, 32, True))
+check("U R2: parents without a local map reach their hidden children from the Knowledge Map",
+      [l for l in items(m13, "**Deeper concepts:**") if "Domain 2" in l.split(" → ")[0] or "Domain 3" in l.split(" → ")[0] or "Topic" in l.split(" → ")[0]],
+      ["- [Domain 2](#kn-00000102) → [Topic 2.0](#kn-00004000) · [Topic 2.1](#kn-00004001)", "- [Domain 3](#kn-00000103) → [Topic 3.0](#kn-00005000)",
+       "- [Topic 2.0](#kn-00004000) → [Deep Under 2.0](#kn-00000900)", "- [Topic 3.0](#kn-00005000) → No Section Under 3.0 (no section)"])
+check("U R2: no fabricated anchor; every map link resolves; view clean; incremental == rebuild",
+      ("kn-00000901" in m13, vu13.broken_link_keys(t13, View.spans(t13)), vu13.integrity(t13), t13 == vu13.rebuild()), (False, [], [], True))
+check("U R2: dropped Deeper concepts entry -> V-20",
+      [c for c, _ in vu13.integrity(t13.replace("- [Domain 3](#kn-00000103) → [Topic 3.0](#kn-00005000)\n", ""))], ["V-20"])
+# provenance: every drawn edge is a graph edge with the same relation and direction
+triples = lambda v: {(e["source_node_id"], e["relation_type"], e["target_node_id"]) for e in v.sources()["edges"]}  # noqa: E731
+check("U provenance: no drawn relation outside the graph", [all((s, r, t) in triples(v) for s, _, r, t in drawn(m)) for v, m in ((vu1, m1), (vu9, m9), (vu8, m8))],
+      [True, True, True])
+# V-20: map disagrees with the graph render
+base_u = vtext(pu1)
+
+
+def u_crafted(fn):
+    vu1.f.write_text(fn(base_u), encoding="utf-8")
+    try:
+        return [c for c, _ in vu1.integrity(vtext(pu1))]
+    finally:
+        vu1.f.write_text(base_u, encoding="utf-8")
+
+
+check("U swapped edge type -> V-20", u_crafted(lambda t: t.replace("KN_000000a1 -- USES --> KN_000000a2", "KN_000000a1 -- DEPENDS_ON --> KN_000000a2")), ["V-20"])
+check("U NEXT rendered as dependency -> V-20", u_crafted(lambda t: t.replace("KN_000000a1 -. NEXT .-> KN_000000a2", "KN_000000a1 -- DEPENDS_ON --> KN_000000a2")), ["V-20"])
+check("U duplicate edge line -> V-20", u_crafted(lambda t: t.replace("    KN_000000a1 -- USES --> KN_000000a2\n", "    KN_000000a1 -- USES --> KN_000000a2\n" * 2)), ["V-20"])
+check("U reversed direction -> V-20", u_crafted(lambda t: t.replace("KN_000000a1 -- USES --> KN_000000a2", "KN_000000a2 -- USES --> KN_000000a1")), ["V-20"])
+check("U map edge to a node not in the graph -> V-20", u_crafted(lambda t: t.replace("    KN_000000a1 -. NEXT", "    KN_000000a2 -- USES --> KN_0000dead\n    KN_000000a1 -. NEXT", 1)),
+      ["V-20"])
+check("U invented relationship line -> V-20", u_crafted(lambda t: t.replace("**Relationships:**\n\n", "**Relationships:**\n\n- [Gamma](#kn-000000a3) — CAUSES → [Alpha](#kn-000000a1)\n")),
+      ["V-20"])
+# edge target removed (SUPERSEDED, 05 rows are never deleted): the map is stale until the map sync redraws it
+g_pre = (pu1.root / GRAPH_F).read_text(encoding="utf-8")
+write_graph(pu1, 2, [node(ROOT_U, "Project Root", "ROOT"), cnode(A, "Alpha"), cnode(B, "Beta"), cnode(C, "Gamma", status="SUPERSEDED")],
+            [edge("KE-0001", A, "USES", B), edge("KE-0002", B, "USES", C), edge("KE-0003", A, "NEXT", B), edge("KE-0004", B, "NEXT", C)])
+rm_found = [c for c, _ in vu1.integrity(vtext(pu1))]
+pre_u = blocks(vtext(pu1))
+rd_u = Reader()
+vu1.on_map_sync(g_pre, rd_u)
+post_u = blocks(vtext(pu1))
+check("U edge target superseded -> V-20; map sync redraws without its edges; MAP == rebuild MAP",
+      ("V-20" in rm_found, "KN_000000a3" in post_u["MAP"], "Gamma" in post_u["MAP"], post_u["MAP"] == blocks(vu1.rebuild())["MAP"]), (True, False, False, True))
+check("U edge target superseded: no Human Sync section touched", sorted(k for k in post_u if pre_u.get(k) != post_u[k] and k.startswith("HS:")), [])
+check("U template MAP block lists the 09 §7.1 lines in order",
+      [h for h in P.map_lines if h in (SKILL / "templates" / "KNOWLEDGE_VIEW_TEMPLATE.md").read_text(encoding="utf-8").split("SITL:MAP:START", 1)[1]], P.map_lines)
 
 report(RESULTS)

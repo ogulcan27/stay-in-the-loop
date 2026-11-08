@@ -7,6 +7,7 @@ Every source or view read goes through Reader.log so tests can assert what was (
 """
 import re
 import sys
+from collections import Counter
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "sync"))
@@ -115,6 +116,10 @@ class Protocol:
         self.domains = {r[0].strip("`"): TICK.findall(r[1]) for r in sm.tables(sm.section(p, "### 13.3 Navigation domains"))[0]}
         self.edge_classes = {r[0].strip("`"): TICK.findall(r[1]) for r in sm.tables(sm.section(p, "### 13.4 Navigation order and semantic dependency"))[0]}
         self.layers = {r[0]: (r[1], TICK.findall(r[2])) for r in sm.tables(sm.section(p, "### 13.5 Authority"))[0]}
+        gm = sm.tables(sm.section(p, "### 7.1 Global map"))
+        self.map_edges = [(r[0], TICK.findall(r[1])[0], TICK.findall(r[2])[0], TICK.findall(r[3])[0]) for r in gm[0]]
+        self.map_lines = [TICK.findall(r[0])[0] for r in gm[1]]
+        self.orphan = {TICK.findall(r[0])[0]: TICK.findall(r[2])[0] for r in sm.tables(sm.section(p, "### 7.3 Orphan concepts"))[0] if r[3] == "Evet"}
         self.l0_part = next(x for x in self.parts if x.startswith("L0 —"))
         self.where_part = self.parts[0]
         cb = (skill / "ula" / "CONTENT_BUILDER.md").read_text(encoding="utf-8").split("# 31. LOCAL MAP OUTPUT", 1)[1]
@@ -458,7 +463,8 @@ class View:
             out += ["", "#### Related Concepts", ""] + rel
         return "\n".join(out + [f"<!-- SITL:KN:{nid}:END -->"])
 
-    def render_map(self, S):
+    def map_nodes(self, S, depth):
+        """09 §7.1: ROOT and unplaced nodes, then parent_id children breadth-first up to depth; SUPERSEDED hidden."""
         roots = [n for n in S["nodes"] if n["node_status"] != "SUPERSEDED" and (n["node_type"] == "ROOT" or n["parent_id"] == "-")]
         shown, frontier = {}, [(r, 0) for r in roots]
         while frontier:
@@ -466,21 +472,121 @@ class View:
             if n["node_id"] in shown:
                 continue
             shown[n["node_id"]] = n
-            if d < self.P.int_rule("global_map_depth"):
+            if d < depth:
                 frontier += [(k, d + 1) for k in self.children(S, n)]
+        return shown
+
+    def map_scope(self, S):
+        """09 §7.1: reduce depth by one while the map exceeds global_map_max_nodes (minimum 1); then keep the first nodes in map order."""
+        depth, cap = self.P.int_rule("global_map_depth"), self.P.int_rule("global_map_max_nodes")
+        shown = self.map_nodes(S, depth)
+        while depth > 1 and len(shown) > cap:
+            depth -= 1
+            shown = self.map_nodes(S, depth)
+        return dict(list(shown.items())[:cap]), depth
+
+    def deeper_groups(self, S, shown, orphan):
+        """09 §7.1 Deeper concepts: (parent, hidden children) per primary parent, parents in map order."""
+        out = []
+        for p in self.map_nodes(S, len(S["nodes"])).values():
+            kids = [k for k in self.children(S, p) if k["node_id"] not in shown and k["node_id"] not in orphan]
+            if kids:
+                out.append((p, kids))
+        return out
+
+    def orphans(self, S):
+        """09 §7.3: {node_id: state} for non-ROOT, non-SUPERSEDED nodes whose parent_id chain does not reach ROOT."""
+        by, out = {n["node_id"]: n for n in S["nodes"]}, {}
+        for n in S["nodes"]:
+            if n["node_status"] == "SUPERSEDED" or n["node_type"] == "ROOT":
+                continue
+            cur, seen, state = n, set(), None
+            while cur["node_type"] != "ROOT":
+                seen.add(cur["node_id"])
+                p = cur["parent_id"]
+                state = ("UNPLACED" if p == "-" else "MISSING_PARENT" if p not in by else
+                         "SUPERSEDED_PARENT" if by[p]["node_status"] == "SUPERSEDED" else "CYCLE" if p in seen else None)
+                if state:
+                    break
+                cur = by[p]
+            state = state if state is None or cur is n or state == "CYCLE" else "ORPHAN_ANCESTOR"
+            if state in self.P.orphan:
+                out[n["node_id"]] = state
+        return out
+
+    def map_edge_rows(self, S):
+        """09 §7.1: (row, source, relation, target) per drawable graph edge, deduplicated, in table then edge_id order."""
+        live = {n["node_id"] for n in S["nodes"] if n["node_status"] != "SUPERSEDED"}
+        out, seen = [], set()
+        for row, src, _, _ in self.P.map_edges[1:]:
+            rels = self.P.edge_classes.get(src, [src])
+            for e in S["edges"]:
+                key = (e["source_node_id"], e["relation_type"], e["target_node_id"])
+                if e["relation_type"] in rels and key[0] in live and key[2] in live and key not in seen:
+                    seen.add(key)
+                    out.append((row,) + key)
+        return out
+
+    def map_name(self, S, n):
+        """09 §7.1 Concepts: link to the KN section if it exists; otherwise the plain name and why there is no link."""
+        name = self.link(S, n)
+        if name.startswith("[") or n["node_status"] == "DEBT":
+            return name
+        return f"{name} ({'root' if n['node_type'] == 'ROOT' else 'no section'})"
+
+    def reading_chains(self, S, rows):
+        """09 §7.1 Reading order: NAVIGATION edges joined into chains through nodes with exactly one in and one out edge."""
+        nav = [(s, t) for row, s, _, t in rows if row == "navigation"]
+        ins, outs = Counter(t for _, t in nav), Counter(s for s, _ in nav)
+        succ = {s: t for s, t in nav}
+        inner = lambda x: ins[x] == 1 and outs[x] == 1  # noqa: E731
+        used, chains = set(), []
+        for heads_only in (True, False):
+            for s, t in nav:
+                if (s, t) in used or (heads_only and inner(s)):
+                    continue
+                chain, x = [s, t], t
+                used.add((s, t))
+                while inner(x) and (x, succ[x]) not in used:
+                    used.add((x, succ[x]))
+                    x = succ[x]
+                    chain.append(x)
+                chains.append(chain)
+        return chains
+
+    def render_map(self, S):
+        """09 §7.1: semantic global map + Legend / Concepts / Deeper / Relationships / Reading order / Orphans (§7.3)."""
         lines = ["<!-- SITL:MAP:START -->", "## Knowledge Map", ""]
+        shown, depth = self.map_scope(S)
         if not shown:
             return "\n".join(lines + ["Yok.", "", self.P.home_link(), "<!-- SITL:MAP:END -->"])
-        lines += ["```mermaid", "flowchart LR"]
-        for n in shown.values():
-            lines.append(f'    {mermaid_id(n["node_id"])}["{label(self.P, n)}"]')
-        for n in shown.values():
-            if n["parent_id"] in shown:
-                lines.append(f'    {mermaid_id(n["parent_id"])} --> {mermaid_id(n["node_id"])}')
-        for e in S["edges"]:
-            if e["relation_type"] == "NEXT" and e["source_node_id"] in shown and e["target_node_id"] in shown:
-                lines.append(f'    {mermaid_id(e["source_node_id"])} -. NEXT .-> {mermaid_id(e["target_node_id"])}')
-        return "\n".join(lines + ["```", "", self.P.home_link(), "<!-- SITL:MAP:END -->"])
+        by = {n["node_id"]: n for n in S["nodes"]}
+        style = {row: mer for row, _, mer, _ in self.P.map_edges}
+        rows = self.map_edge_rows(S)
+        drawn = [(row, s, r, t) for row, s, r, t in rows if s in shown and t in shown]
+        lines += ["```mermaid", "flowchart LR"] + [f'    {mermaid_id(i)}["{label(self.P, n)}"]' for i, n in shown.items()]
+        tree = [i for i, n in shown.items() if n["parent_id"] in shown]
+        lines += [f'    {mermaid_id(shown[i]["parent_id"])} {style["hierarchy"]} {mermaid_id(i)}' for i in tree]
+        lines += [f'    {mermaid_id(s)} {style[row].replace("<RELATION>", r)} {mermaid_id(t)}' for row, s, r, t in drawn]
+        lines += ["```"]
+        kinds = {"hierarchy"} if tree else set()
+        kinds |= {row for row, _, _, _ in drawn}
+        orphan = self.orphans(S)
+        groups = self.deeper_groups(S, shown, orphan)
+        deeper = [f"- {self.map_name(S, p)} → " + " · ".join(self.map_name(S, k) for k in kids) for p, kids in groups]
+        hidden, cap = sum(len(kids) for _, kids in groups), self.P.int_rule("global_map_max_nodes")
+        rel = [f"- {self.link(S, by[s])} — {r} → {self.link(S, by[t])}" for row, s, r, t in rows if row != "navigation"]
+        chains = [f"- {' → '.join(self.link(S, by[x]) for x in c)}" for c in self.reading_chains(S, rows)]
+        out = {"**Legend:**": " · ".join(f"`{mer}` {text}" for row, _, mer, text in self.P.map_edges if row in kinds),
+               "**Concepts:**": " · ".join(self.map_name(S, n) for n in shown.values()),
+               "**Deeper concepts:**": f"{hidden} not drawn (map depth {depth}, at most {cap} nodes), by primary parent:\n\n" + "\n".join(deeper) if deeper else "",
+               "**Relationships:**": "\n\n" + "\n".join(rel) if rel else "",
+               "**Reading order**": " (navigation only, not a dependency):\n\n" + "\n".join(chains) if chains else "",
+               "**Orphan concepts:**": " · ".join(f"{self.link(S, by[i])} ({self.P.orphan[s]})" for i, s in orphan.items())}
+        for head in self.P.map_lines:
+            if out.get(head):
+                lines += ["", head + ("" if out[head].startswith(("\n", " (")) else " ") + out[head]]
+        return "\n".join(lines + ["", self.P.home_link(), "<!-- SITL:MAP:END -->"])
 
     def render_index(self, S, rd):
         """09 §3.1 Project Home: entry point; Current Position / Open Questions link only to MODEL parts that exist."""
@@ -906,6 +1012,10 @@ class View:
                 add("V-08")
             if self.journey_stale(text, spans, S):
                 add("V-18")
+            if self.orphans(S):
+                add("V-19")
+            if self.map_stale(text, spans, S):
+                add("V-20")
         else:
             found = [(c, s) for c, s in found if s == "FAIL"]
         return sorted(set(found))
@@ -927,6 +1037,10 @@ class View:
         """07 V-18: JOURNEY section differs from the 09 §5.4 render of Human Sync state + record Purpose."""
         return "JOURNEY" in spans and self.lines_of(text, spans["JOURNEY"]) != self.render_journey(S, Reader())
 
+    def map_stale(self, text, spans, S):
+        """07 V-20: MAP section differs from the 09 §7.1 render of the Semantic Graph."""
+        return "MAP" in spans and self.lines_of(text, spans["MAP"]) != self.render_map(S)
+
     def broken_link_keys(self, text, spans):
         """07 V-01: sections with an internal link to an anchor the file does not produce (GitHub -1, -2 suffixes included)."""
         made, seen = set(), {}
@@ -942,7 +1056,7 @@ class View:
         found = self.integrity(text, S)
         if any(s == "FAIL" for _, s in found):
             return found, "FAIL"
-        if not [c for c, _ in found if c not in ("V-15", "V-16")]:
+        if not [c for c, _ in found if c not in ("V-15", "V-16", "V-19")]:
             return found, "NOTHING"
         if text is None:
             self.update([], rd)

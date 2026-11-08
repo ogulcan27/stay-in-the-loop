@@ -250,6 +250,8 @@ Kapsam: Yalnız active project root altındaki `docs/learning/STAY_IN_THE_LOOP.m
 | V-16 | Navigation anchor'ı (`09` §3.2) birden fazla üretiliyor | WARNING | Rapor edilir. Çakışan heading kaynağında düzeltilir. |
 | V-17 | Section navigation'ı graph veya `09` §3.1 / §6.3 ile uyuşmuyor: breadcrumb, parent, reading order veya Project Home dönüşü | WARNING | rebuild `KNOWLEDGE_VIEW` section |
 | V-18 | `JOURNEY` Human Sync state veya record Purpose ile uyuşmuyor: node, sıra, revision grubu, status, current position veya link (`09` §5.4) | WARNING | rebuild `KNOWLEDGE_VIEW` JOURNEY |
+| V-19 | Orphan concept: `parent_id` zinciri `ROOT`'a ulaşmıyor (`09` §7.3) | WARNING | Rapor edilir. Graph `parent_id` ile düzeltilir (`05` §5). View düzeltmez. |
+| V-20 | `MAP` graph'tan türeyen render ile uyuşmuyor: node, edge, relation, yön, edge biçimi, link veya satır (`09` §7.1) | WARNING | rebuild `KNOWLEDGE_VIEW` MAP |
 
 - Candidate FAIL → view yazılmaz. Authoritative write geri alınmaz. Sonuç WARNING olarak raporlanır.
 - Mevcut dosyada FAIL → Final Integrity FAIL. View bozuk veya yanıltıcıdır. Tam rebuild yalnız kullanıcı onayı ile yapılır (`09` §12).

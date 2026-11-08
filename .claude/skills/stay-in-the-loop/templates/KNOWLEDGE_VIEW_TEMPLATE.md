@@ -164,8 +164,30 @@ Learning depth: <L1 · L2> · Source: `<event-id>` (`<artifact path>`)
 
 ```mermaid
 flowchart LR
-    KN_xxxxxxxx["<canonical_name> (KN-xxxxxxxx)"] --> KN_yyyyyyyy["<canonical_name> (KN-yyyyyyyy)"]
+    KN_xxxxxxxx["<canonical_name> (KN-xxxxxxxx)"]
+    KN_yyyyyyyy["<canonical_name> (KN-yyyyyyyy)"]
+    KN_xxxxxxxx --> KN_yyyyyyyy
+    KN_yyyyyyyy -- <RELATION> --> KN_zzzzzzzz
+    KN_yyyyyyyy -. NEXT .-> KN_zzzzzzzz
 ```
+
+**Legend:** `-->` primary parent · `-- <RELATION> -->` semantic relation, source → target · `-. <RELATION> .->` reading order only, not a dependency
+
+**Concepts:** <root name> (root) · [<canonical_name>](#kn-yyyyyyyy) · <name> (DEBT) · <name> (no section)
+
+**Deeper concepts:** <n> not drawn (map depth <d>, at most <global_map_max_nodes> nodes), by primary parent:
+
+- [<parent>](#kn-yyyyyyyy) → [<child>](#kn-zzzzzzzz) · <child> (no section)
+
+**Relationships:**
+
+- [<source>](#kn-yyyyyyyy) — <RELATION> → [<target>](#kn-zzzzzzzz)
+
+**Reading order** (navigation only, not a dependency):
+
+- [<A>](#kn-yyyyyyyy) → [<B>](#kn-zzzzzzzz)
+
+**Orphan concepts:** <name> (unplaced)
 
 [↑ Project Home](#project-home)
 <!-- SITL:MAP:END -->

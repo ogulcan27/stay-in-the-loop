@@ -160,6 +160,22 @@ MUTATIONS = [
      [("templates/KNOWLEDGE_VIEW_TEMPLATE.md", r"^  - Revision: .*\n", "")], ["view"]),
     ("VIS-M24", "08 §11 sync-only run may not write JOURNEY",
      [("references/08_HUMAN_SYNC_STATE.md", r"^(\| `STAY_IN_THE_LOOP.md` \| Yalnız HS), JOURNEY,", r"\1,")], ["view"]),
+    ("VIS-M25", "09 §7.1 NEXT rendered as a dependency",
+     [(R09, r"^(\| navigation \| `NAVIGATION` \(§13\.4\) \|) `-\. <RELATION> \.->` \|", r"\1 `-- DEPENDS_ON -->` |")], ["view"]),
+    ("VIS-M26", "09 §7.1 semantic edge type swapped (every relation drawn as USES)",
+     [(R09, r"^(\| semantic \| `SEMANTIC` \(§13\.4\) \|) `-- <RELATION> -->` \|", r"\1 `-- USES -->` |")], ["view"]),
+    ("VIS-M27", "09 §7.1 semantic row removed (map back to hierarchy + NEXT only)",
+     [(R09, r"^\| semantic \| `SEMANTIC` \(§13\.4\) \|.*\n", "")], ["view"]),
+    ("VIS-M28", "07 V-20 removed (swapped / reversed / duplicate / dangling map edge accepted)", [(R07, r"^\| V-20 \|.*\n", "")], ["view"]),
+    ("VIS-M29", "07 V-19 removed (orphan concepts undetected)", [(R07, r"^\| V-19 \|.*\n", "")], ["view"]),
+    ("VIS-M30", "09 §7.3 superseded parent no longer an orphan",
+     [(R09, r"^\| `SUPERSEDED_PARENT` \|(.*)\| Evet \|$", r"| `SUPERSEDED_PARENT` |\1| Hayır |")], ["view"]),
+    ("VIS-M31", "09 §1 large graph never decomposed",
+     [(R09, r"^\| global_map_max_nodes \| 30 \|$", "| global_map_max_nodes | 999 |")], ["view"]),
+    ("VIS-M32", "09 §7.1 Relationships line removed (edges hidden by depth are lost)",
+     [(R09, r"^\| `\*\*Relationships:\*\*` \|.*\n", "")], ["view"]),
+    ("VIS-M33", "09 §7.1 Deeper concepts line removed (concepts hidden by depth or the node cap lose their route)",
+     [(R09, r"^\| `\*\*Deeper concepts:\*\*` \|.*\n", "")], ["view"]),
 ]
 
 

@@ -64,6 +64,8 @@ def map_edges(block):
         for line in body.splitlines():
             if " -. NEXT .-> " in line:
                 kinds["NEXT"] += 1
+            elif " -- PART_OF --> " in line:
+                kinds["HIERARCHY"] += 1
             elif re.search(r" -- [A-Z_]+ --> ", line):
                 kinds["RELATION"] += 1
             elif " --> " in line:

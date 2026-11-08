@@ -52,6 +52,7 @@ STAY_IN_THE_LOOP.md (derived)  → human-facing projection
 | global_map_depth | 2 |
 | local_map_min_children | 3 |
 | map_label_max_chars | 48 |
+| global_map_max_nodes | 30 |
 | collapsed | L3; L4; Reference |
 | key_terms_max | 5 |
 | remember_max | 5 |
@@ -395,16 +396,44 @@ CONTENT = WHAT / WHY / HOW
 ### 7.1 Global map
 
 - `## Knowledge Map` içinde tek Mermaid bloğu: `flowchart LR`.
-- Node'lar: `ROOT` ve `ROOT`'tan `global_map_depth` primary seviye. `SUPERSEDED` node gösterilmez.
-- Edge'ler: primary `parent_id` (`-->`) ve iki ucu haritada olan `NEXT` (`-. NEXT .->`).
+- Node'lar: `ROOT`, unplaced node'lar (`parent_id` `-`, `05` §5.1) ve bunlardan `parent_id` ile `global_map_depth` primary seviye. `SUPERSEDED` node gösterilmez.
+- Node sayısı `global_map_max_nodes`'u aşarsa derinlik birer azaltılır, en az 1. Derinlik 1'de de aşarsa harita sırasıyla ilk `global_map_max_nodes` node çizilir. Çizilmiş node sayısı hiçbir zaman `global_map_max_nodes`'u aşmaz.
+- Harita sırası: `ROOT`, unplaced node'lar, sonra `parent_id` child'ları seviye seviye, graph sırasıyla.
+- Çizilmeyen her node `**Deeper concepts:**` satırında primary parent'ı altında durur. Local map (§7.2) ek zoom'dur.
 - Mermaid node ID = node ID'de `-` yerine `_`. Label = `canonical_name (KN-xxxxxxxx)`. `canonical_name` `map_label_max_chars` ile kısaltılır. `DEBT` node label'ı `(DEBT)` alır.
 - Label `short_meaning`, `system_role` veya ders cümlesi taşımaz.
 - Daha derin seviye global map'e konmaz. Recursive zoom local map ile yapılır.
 
+| edge | kaynak | Mermaid | legend |
+|---|---|---|---|
+| hierarchy | primary `parent_id` | `-->` | `primary parent` |
+| also part of | `PART_OF` | `-- PART_OF -->` | `also part of` |
+| semantic | `SEMANTIC` (§13.4) | `-- <RELATION> -->` | `semantic relation, source → target` |
+| navigation | `NAVIGATION` (§13.4) | `-. <RELATION> .->` | `reading order only, not a dependency` |
+
+- Edge yalnız iki ucu haritada ise çizilir. Sıra tablo sırasıdır; her satırda graph `edge_id` sırası.
+- `<RELATION>` stored `relation_type` token'ıdır (`05` §4.1). Yön graph'taki yöndür: source → target.
+- Aynı `(source, relation, target)` bir kez çizilir. Yeni relation, çıkarılmış edge veya açıklama yazılmaz.
+- `NAVIGATION` edge'i hiçbir zaman `SEMANTIC` biçimiyle çizilmez. `NEXT` bağımlılık değildir (§13.4).
+
+Map'in altındaki satırlar, bu sırayla. Boş satır yazılmaz:
+
+| satır | içerik |
+|---|---|
+| `**Legend:**` | Haritada çizilen edge türleri, tablo sırasıyla: `` `Mermaid` legend `` |
+| `**Concepts:**` | Haritadaki her node, harita sırasıyla. KN section'ı olan node `[canonical_name](#kn-xxxxxxxx)`. Diğerleri link'siz: `ROOT` `(root)`, `DEBT` `(DEBT)`, diğerleri `(no section)`. |
+| `**Deeper concepts:**` | Haritada olmayan, orphan olmayan node'lar. Başlık: sayı, kullanılan derinlik ve `global_map_max_nodes`. Sonra primary parent başına bir satır, parent'lar harita sırasıyla: `- <parent> → <child> · <child>`. Ad biçimi `**Concepts:**` ile aynıdır. |
+| `**Relationships:**` | Her `PART_OF` ve `SEMANTIC` edge, iki ucu `SUPERSEDED` değilse, `edge_id` sırasıyla: `- <source> — <RELATION> → <target>` |
+| `**Reading order**` | `NAVIGATION` edge zincirleri: `- A → B → C`. Başlık `(navigation only, not a dependency)` taşır. |
+| `**Orphan concepts:**` | §7.3 |
+
+- `Relationships` ve `Reading order` derinlikten bağımsızdır. Haritada çizilmeyen edge kaybolmaz.
+- Node adı KN section'ı varsa ona link verir (§3.2). Hedefi olmayan node'a link verilmez. Personal library Concept Home'u (`06` §8) bu view'ın link hedefi değildir.
+
 ### 7.2 Local map
 
 - KN section'ının Where am I? part'ında durur.
-- Yalnız primary child sayısı ≥ `local_map_min_children` ise üretilir.
+- Yalnız primary child sayısı ≥ `local_map_min_children` ise üretilir. Local map'i olmayan node'un çizilmeyen child'ları `**Deeper concepts:**` satırında durur (§7.1).
 - Node'lar: section node'u + primary child'lar + node'un `PART_OF` ve `NEXT` dışındaki relation hedefleri.
 - Edge'ler: child (`-->`) ve relation (`-- RELATION -->`). Label kuralı §7.1 ile aynıdır.
 
@@ -414,6 +443,24 @@ GLOBAL MAP (depth 1–2) → KN section → LOCAL MAP (children) → child KN se
 
 - Map içerik deposu değildir. Graph'ın görünümüdür (`05` §1). Ayrı knowledge graph yoktur.
 - `maps/HORIZONTAL_MAP.md` terminal `map` komutu için internal view olarak kalır.
+
+### 7.3 Orphan concepts
+
+Orphan: `ROOT` olmayan, `SUPERSEDED` olmayan ve `parent_id` zinciri `ROOT`'a ulaşmayan node.
+
+| durum | koşul | gösterim | orphan |
+|---|---|---|---|
+| `ROOT` | `node_type` `ROOT` | - | Hayır |
+| `PLACED` | `parent_id` zinciri `ROOT`'a ulaşır, derinlikten bağımsız | - | Hayır |
+| `UNPLACED` | `parent_id` `-` (`05` §5.1) | `unplaced` | Evet |
+| `MISSING_PARENT` | `parent_id` graph'ta yok | `missing parent` | Evet |
+| `SUPERSEDED_PARENT` | `parent_id` `SUPERSEDED` node | `superseded parent` | Evet |
+| `CYCLE` | Zincir kendine döner (M-08, M-09) | `hierarchy cycle` | Evet |
+| `ORPHAN_ANCESTOR` | Zincirdeki bir ata orphan | `orphan ancestor` | Evet |
+
+- Global map'te çizilmemek orphan değildir. Edge sayısı orphan'ı belirlemez.
+- Orphan `**Orphan concepts:**` satırında `<node> (<gösterim>)` olarak durur ve V-19 ile raporlanır.
+- View graph'ı düzeltmez. Düzeltme graph'ta `parent_id` ile yapılır (`05` §5).
 
 ---
 
@@ -614,6 +661,6 @@ Yeni bir presentation değişikliği bu sözleşmeye göre değerlendirilir. Ger
 ## Authoritative Source
 
 - `08_HUMAN_SYNC_STATE.md` §1, §3, §4, §11.1, §12 (record, status, write sırası).
-- `05_MINDMAP_PROTOCOL.md` §1, §3, §5.4, §12, §13 (graph, hierarchy, zoom).
+- `05_MINDMAP_PROTOCOL.md` §1, §3, §4.1, §5, §12, §13 (graph, relation vocabulary, hierarchy, zoom).
 - `04_ULA_PROTOCOL.md` §9 (artifact yapısı).
 - `07_INTEGRITY_CHECKS.md` §V, §L.
