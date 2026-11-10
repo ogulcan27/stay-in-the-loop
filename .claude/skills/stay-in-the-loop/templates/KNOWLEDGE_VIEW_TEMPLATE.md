@@ -123,9 +123,25 @@ Reading order — Previous: <NEXT kaynağı> · Next: <NEXT hedefi; NEXT yoksa s
 
 Also part of: <secondary PART_OF; yoksa satır yok>
 
+**In one sentence:** <graph short_meaning, aynen; boş veya - ise satır yok>
+
 Learning depth: <L1 · L2> · Source: `<event-id>` (`<artifact path>`)
 
 <Local Map: yalnız primary child ≥ 3 ise Mermaid flowchart LR>
+
+#### Semantic Relationships
+
+**Outgoing** (this concept → other concepts):
+
+- **<canonical_name>** — <RELATION> → [<target>](#kn-xxxxxxxx)
+
+**Incoming** (other concepts → this concept):
+
+- [<source>](#kn-xxxxxxxx) — <RELATION> → **<canonical_name>**
+
+#### Learning Path
+
+L0 → L1 → L2 → L3 (collapsed) → L4 (collapsed) → Boundary (collapsed) → Example → Retrieval → Reference (collapsed)
 
 #### L0 — Map
 
@@ -143,7 +159,10 @@ Learning depth: <L1 · L2> · Source: `<event-id>` (`<artifact path>`)
 
 </details>
 
-#### Boundary
+<details>
+<summary><strong>Boundary</strong></summary>
+
+</details>
 
 #### Example
 
@@ -153,10 +172,6 @@ Learning depth: <L1 · L2> · Source: `<event-id>` (`<artifact path>`)
 <summary><strong>Reference</strong></summary>
 
 </details>
-
-#### Related Concepts
-
-- <RELATION> → [<name>](#kn-xxxxxxxx)
 <!-- SITL:KN:<KN-xxxxxxxx>:END -->
 
 <!-- SITL:MAP:START -->

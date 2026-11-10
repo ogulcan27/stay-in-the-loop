@@ -100,7 +100,7 @@ MUTATIONS = [
     ("VIEW-M8", "08 §11 sync-only may write every view section",
      [(R08, r"^\| `STAY_IN_THE_LOOP.md` \| .* \|$", "| `STAY_IN_THE_LOOP.md` | YES |")], ["view"]),
     ("VIEW-M9", "09 §1 L1 / L2 hidden behind collapsible blocks",
-     [(R09, r"^\| collapsed \| L3; L4; Reference \|$", "| collapsed | L1; L2; L3; L4; Reference |")], ["view"]),
+     [(R09, r"^\| collapsed \| L3; L4; Boundary; Reference \|$", "| collapsed | L1; L2; L3; L4; Boundary; Reference |")], ["view"]),
     ("VIEW-M10", "07 §L.1 knowledge view becomes authoritative",
      [(R07, r"^(\| `KNOWLEDGE_VIEW` \|) DERIVED \|", r"\1 AUTHORITATIVE |")], ["integration", "view"]),
     ("HUMAN-M1", "09 §5.1 one sentence hidden in the technical trace",
@@ -176,6 +176,18 @@ MUTATIONS = [
      [(R09, r"^\| `\*\*Relationships:\*\*` \|.*\n", "")], ["view"]),
     ("VIS-M33", "09 §7.1 Deeper concepts line removed (concepts hidden by depth or the node cap lose their route)",
      [(R09, r"^\| `\*\*Deeper concepts:\*\*` \|.*\n", "")], ["view"]),
+    ("VIS-M34", "09 §1 Boundary back on the primary path (not collapsed)",
+     [(R09, r"^\| collapsed \| L3; L4; Boundary; Reference \|$", "| collapsed | L3; L4; Reference |")], ["view"]),
+    ("VIS-M35", "09 §6.1 orientation taken from system_role instead of short_meaning",
+     [(R09, r"^(\| In one sentence \| graph) `short_meaning`, aynen \|", r"\1 `system_role`, aynen |")], ["view"]),
+    ("VIS-M36", "09 §6.4 outgoing group takes incoming edges (direction reversed)",
+     [(R09, r"^(\| `\*\*Outgoing\*\*.*\| `SEMANTIC`;) source = node \|", r"\1 target = node |")], ["view"]),
+    ("VIS-M37", "09 §6.4 outgoing group built from NAVIGATION edges (NEXT listed as a semantic relation)",
+     [(R09, r"^(\| `\*\*Outgoing\*\*.*\|) `SEMANTIC`; source = node \|", r"\1 `NAVIGATION`; source = node |")], ["view"]),
+    ("VIS-M38", "07 V-21 removed (drifted Concept Home accepted)", [(R07, r"^\| V-21 \|.*\n", "")], ["view"]),
+    ("VIS-M39", "07 V-22 removed (missing orientation unreported)", [(R07, r"^\| V-22 \|.*\n", "")], ["view"]),
+    ("VIS-M40", "template KN loses the Learning Path entry",
+     [("templates/KNOWLEDGE_VIEW_TEMPLATE.md", r"^#### Learning Path\n\n.*\n\n", "")], ["view"]),
 ]
 
 

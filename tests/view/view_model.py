@@ -93,7 +93,11 @@ class Protocol:
         self.hs_map = [(r[0].strip("`"), r[1], r[2]) for r in hs[0]]
         self.status_line = {TICK.findall(r[0])[0]: TICK.findall(r[1])[0] for r in hs[1]}
         self.model_map = [tuple(r) for r in sm.tables(sm.section(p, "### 5.3 Project in 60 Seconds"))[0]]
-        self.parts = [r[0] for r in sm.tables(sm.section(p, "### 6.1 Parts"))[0]]
+        part_rows = {r[0]: r for r in sm.tables(sm.section(p, "### 6.1 Parts"))[0]}
+        self.parts = list(part_rows)
+        self.orientation = ("In one sentence", TICK.findall(part_rows["In one sentence"][1])[0])
+        self.rel_groups = [(TICK.findall(r[0])[0], TICK.findall(r[1])[0], "source" if "source = node" in r[1] else "target", TICK.findall(r[2])[0])
+                           for r in sm.tables(sm.section(p, "### 6.4 Semantic Relationships"))[0]]
         heading = lambda c: TICK.findall(c)[0].lstrip("# ") if "`" in c else None  # noqa: E731
         mapping = sm.tables(sm.section(p, "### 6.2 Artifact mapping"))
         self.artifact_map = {r[0]: {"LIGHT": heading(r[1]), "FULL": heading(r[2])} for r in mapping[0]}
@@ -426,7 +430,40 @@ class View:
             out += ["", "Reading order — " + " · ".join(sides)]
         return "\n".join(out)
 
+    def orientation(self, node):
+        """09 §6.3: the graph short_meaning verbatim; None when empty or '-' (V-22 reports the gap)."""
+        name, field = self.P.orientation
+        return None if node[field].strip() in ("", "-") else f"**{name}:** {node[field]}"
+
+    def relations(self, S, node):
+        """09 §6.4: outgoing / incoming SEMANTIC edges, stored token and direction, edge_id order; NEXT and PART_OF never listed."""
+        by = {n["node_id"]: n for n in S["nodes"]}
+        live = lambda i: i in by and by[i]["node_status"] != "SUPERSEDED"  # noqa: E731
+        nid, out = node["node_id"], ["#### Semantic Relationships"]
+        for label, cls, side, tpl in self.P.rel_groups:
+            other = "target" if side == "source" else "source"
+            lines, seen = [], set()
+            for e in S["edges"]:
+                key = (e["source_node_id"], e["relation_type"], e["target_node_id"])
+                if e["relation_type"] in self.P.edge_classes[cls] and e[f"{side}_node_id"] == nid and live(e[f"{other}_node_id"]) and key not in seen:
+                    seen.add(key)
+                    lines.append(tpl.replace("<node>", node["canonical_name"]).replace("<RELATION>", e["relation_type"])
+                                 .replace(f"<{other}>", self.link(S, by[e[f"{other}_node_id"]])))
+            if lines:
+                out += ["", label, ""] + lines
+        return "\n".join(out + (["", "Yok."] if len(out) == 1 else []))
+
+    def short_part(self, part):
+        level = re.match(r"(L\d) —", part)
+        return level.group(1) if level else part
+
+    def learning_path(self, shown):
+        """09 §6.5: the shown learning parts in section order; collapsed parts marked."""
+        items = [s + (" (collapsed)" if s in self.P.collapsed else "") for s in map(self.short_part, shown)]
+        return "#### Learning Path\n\n" + (" → ".join(items) or "Yok.")
+
     def render_kn(self, S, node, rd):
+        """09 §6: Concept Home View: navigation, orientation, local map, semantic relationships, learning path, ULA parts."""
         by = {n["node_id"]: n for n in S["nodes"]}
         nid, depth = node["node_id"], depth_list(node["available_depth"])
         parts = self.artifact_parts(node, rd)
@@ -435,32 +472,23 @@ class View:
         also = [by[e["target_node_id"]] for e in S["edges"] if e["source_node_id"] == nid and e["relation_type"] == "PART_OF" and e["target_node_id"] in by]
         if also:
             out += ["", "Also part of: " + ", ".join(self.link(S, n) for n in also)]
+        orient = self.orientation(node)
+        if orient:
+            out += ["", orient]
         events = node["source_event_ids"].replace(" ", "")
         paths = sorted({p for _, p in parts.values()})
         out += ["", f"Learning depth: {' · '.join(depth)} · Source: `{events}`" + "".join(f" (`{p}`)" for p in paths)]
         lm = self.local_map(S, node)
         if lm:
             out += ["", lm]
-        for part in self.P.parts:
-            level = re.match(r"(L\d) —", part)
-            if part not in parts or (level and level.group(1) != "L0" and level.group(1) not in depth):
-                continue
+        shown = [p for p in self.P.parts if p in parts and (self.short_part(p) == p or self.short_part(p) == "L0" or self.short_part(p) in depth)]
+        out += ["", self.relations(S, node), "", self.learning_path(shown)]
+        for part in shown:
             body = parts[part][0]
-            short = level.group(1) if level else part
-            if short in self.P.collapsed:
+            if self.short_part(part) in self.P.collapsed:
                 out += ["", "<details>", f"<summary><strong>{part}</strong></summary>", "", shift(body, 1), "", "</details>"]
             else:
                 out += ["", f"#### {part}", "", body]
-        rel = []
-        for e in S["edges"]:
-            if e["relation_type"] == "PART_OF":
-                continue
-            if e["source_node_id"] == nid and e["target_node_id"] in by:
-                rel.append(f"- {e['relation_type']} → {self.link(S, by[e['target_node_id']])}")
-            elif e["target_node_id"] == nid and e["source_node_id"] in by:
-                rel.append(f"- {self.link(S, by[e['source_node_id']])} → {e['relation_type']} → **{node['canonical_name']}**")
-        if rel:
-            out += ["", "#### Related Concepts", ""] + rel
         return "\n".join(out + [f"<!-- SITL:KN:{nid}:END -->"])
 
     def map_nodes(self, S, depth):
@@ -875,7 +903,8 @@ class View:
                for e in S["edges"] if n["node_id"] in (e["source_node_id"], e["target_node_id"])]
         kids = [(k["node_id"], k["canonical_name"], k["node_status"]) for k in self.children(S, n)]
         crumbs = [(c["node_id"], c["canonical_name"], c["node_status"], c["available_depth"]) for c in self.chain(S, n)]
-        return (n["canonical_name"], n["available_depth"], n["node_status"], n["source_artifacts"], n["source_event_ids"], rel, kids, crumbs)
+        return (n["canonical_name"], n[self.P.orientation[1]], n["available_depth"], n["node_status"], n["source_artifacts"], n["source_event_ids"],
+                rel, kids, crumbs)
 
     def on_map_sync(self, pre_graph_text, rd=None, fail_on=None):
         """Changed KN sections only: compares graph rows before and after the map sync write (graph only)."""
@@ -1016,6 +1045,10 @@ class View:
                 add("V-19")
             if self.map_stale(text, spans, S):
                 add("V-20")
+            if self.home_stale(text, spans, S):
+                add("V-21")
+            if [n for n in self.kn_nodes(S) if f"KN:{n['node_id']}" in spans and not self.orientation(n)]:
+                add("V-22")
         else:
             found = [(c, s) for c, s in found if s == "FAIL"]
         return sorted(set(found))
@@ -1041,6 +1074,19 @@ class View:
         """07 V-20: MAP section differs from the 09 §7.1 render of the Semantic Graph."""
         return "MAP" in spans and self.lines_of(text, spans["MAP"]) != self.render_map(S)
 
+    def home_stale(self, text, spans, S):
+        """07 V-21: KN sections whose orientation line or semantic relationship groups differ from the graph render (09 §6.3, §6.4)."""
+        nodes, label, out = {n["node_id"]: n for n in S["nodes"]}, f"**{self.P.orientation[0]}:**", []
+        for key, span in spans.items():
+            n = nodes.get(key[3:]) if key.startswith("KN:") else None
+            if not n:
+                continue
+            body = self.lines_of(text, span)
+            orient = [l for l in body.splitlines() if l.startswith(label)]
+            if orient != [x for x in [self.orientation(n)] if x] or f"\n\n{self.relations(S, n)}\n\n#### " not in body:
+                out.append(key)
+        return out
+
     def broken_link_keys(self, text, spans):
         """07 V-01: sections with an internal link to an anchor the file does not produce (GitHub -1, -2 suffixes included)."""
         made, seen = set(), {}
@@ -1056,7 +1102,7 @@ class View:
         found = self.integrity(text, S)
         if any(s == "FAIL" for _, s in found):
             return found, "FAIL"
-        if not [c for c, _ in found if c not in ("V-15", "V-16", "V-19")]:
+        if not [c for c, _ in found if c not in ("V-15", "V-16", "V-19", "V-22")]:
             return found, "NOTHING"
         if text is None:
             self.update([], rd)
@@ -1075,7 +1121,7 @@ class View:
                     n = next(x for x in S["nodes"] if x["node_id"] == k[3:])
                     if spans[k][2].get("depth") != ";".join(depth_list(n["available_depth"])) or f"### {n['node_id']} — {n['canonical_name']}\n" not in cur + "\n":
                         keys.append(k)
-        keys += self.nav_stale(text, spans, S) + self.broken_link_keys(text, spans) + ["JOURNEY"] * self.journey_stale(text, spans, S)
+        keys += self.nav_stale(text, spans, S) + self.home_stale(text, spans, S) + self.broken_link_keys(text, spans) + ["JOURNEY"] * self.journey_stale(text, spans, S)
         self.update(keys + ["MAP", "INDEX"], rd)
         return found, "REPAIRED"
 

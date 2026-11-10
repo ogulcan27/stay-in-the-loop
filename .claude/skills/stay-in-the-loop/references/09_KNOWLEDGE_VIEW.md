@@ -53,7 +53,7 @@ STAY_IN_THE_LOOP.md (derived)  → human-facing projection
 | local_map_min_children | 3 |
 | map_label_max_chars | 48 |
 | global_map_max_nodes | 30 |
-| collapsed | L3; L4; Reference |
+| collapsed | L3; L4; Boundary; Reference |
 | key_terms_max | 5 |
 | remember_max | 5 |
 
@@ -301,12 +301,21 @@ Not yet synced: <label>, <label>
 Bir graph node'u KN section alır, eğer `node_status: ACTIVE` ve `available_depth` `-` değilse.
 `DEBT` node section almaz. Open Learning Debt'te görünür.
 
+KN section kavramın **Concept Home View**'udur: okuyucuyu ders derinliğinden önce yönlendiren küçük kavram sayfası.
+
+- DERIVED'dir. Graph ve `COMPLETE` artifact'ten türer, rebuild ile yeniden üretilir. Kavram metni veya relation için ikinci authority oluşmaz.
+- Personal library Concept Home'u (`06` §8) değildir. O kayıt değişmez ve bu view'ın link hedefi değildir.
+- Anchor `#kn-xxxxxxxx` aynı kalır (§3.2).
+
 ### 6.1 Parts
 
 | part | kaynak | koşul |
 |---|---|---|
 | Where am I? | graph `parent_id` zinciri + `NEXT` + `PART_OF` + `available_depth` + `source_event_ids` | Her zaman |
+| In one sentence | graph `short_meaning`, aynen | Boş veya `-` değilse |
 | Local Map | graph primary child'lar + node'un relation'ları | Primary child sayısı ≥ `local_map_min_children` |
+| Semantic Relationships | graph `SEMANTIC` edge'leri (§6.4) | Her zaman |
+| Learning Path | gösterilen learning part'ları (§6.5) | Her zaman |
 | L0 — Map | artifact L0 | Artifact'te doluysa |
 | L1 — Simple Mental Model | artifact L1 | `available_depth` içinde |
 | L2 — Mechanism | artifact L2 | `available_depth` içinde |
@@ -316,10 +325,10 @@ Bir graph node'u KN section alır, eğer `node_status: ACTIVE` ve `available_dep
 | Example | artifact example | Artifact'te doluysa |
 | Retrieval | artifact retrieval | Artifact'te doluysa |
 | Reference | artifact reference | Artifact'te doluysa |
-| Related Concepts | graph edge'leri | Edge varsa |
 
+- Sıra tablo sırasıdır. In one sentence ve Local Map Where am I? part'ının içinde durur (§6.3, §7.2).
 - Yalnız ULA pass'in gerçekten ürettiği level gösterilir. Light ULA L4 üretmez. Boş level uydurulmaz.
-- `collapsed` part'ları `<details>` içinde durur. L0, L1, L2 açık kalır.
+- `collapsed` part'ları `<details>` içinde durur. L0, L1, L2, Example ve Retrieval açık kalır.
 - Self-Check, Content Integrity Check, Metadata, Orientation, Oral Version ve Transition gösterilmez. Bunlar audit içindir.
 
 ### 6.2 Artifact mapping
@@ -369,6 +378,12 @@ Where am I? part'ı navigation satırları ile başlar:
 Parent: <parent>
 
 Reading order — Previous: <node> · Next: <node>
+
+Also part of: <node>
+
+**In one sentence:** <short_meaning>
+
+Learning depth: <L1 · L2> · Source: `<event-id>` (`<artifact path>`)
 ```
 
 - Breadcrumb yalnız primary `parent_id` zincirinden üretilir (`05` §5.4). Bağımsız hiyerarşi yoktur. Zincirdeki section'lı node link olur.
@@ -377,12 +392,38 @@ Reading order — Previous: <node> · Next: <node>
 - `SUPERSEDED` node reading order'da gösterilmez. Birden fazla node `, ` ile ayrılır. Taraf yoksa yazılmaz. İki taraf da yoksa satır yoktur.
 - Reading order okuma sırasıdır, bağımlılık değildir (§13.4). Satır ön koşul veya dependency dili taşımaz.
 - Secondary `PART_OF` üyelikleri ayrı satırda: `Also part of:`.
+- `In one sentence` graph `short_meaning` metnidir, aynen. Özet üretilmez. ULA metninden, addan veya başka alandan türetilmez.
+- `short_meaning` boş veya `-` ise satır yazılmaz. Metin uydurulmaz. V-22 eksikliği raporlar; düzeltme graph'tadır (`05` §3).
 
-### 6.4 Related Concepts
+### 6.4 Semantic Relationships
 
-- Node'a gelen ve node'dan çıkan edge'ler, `PART_OF` hariç. Biçim: çıkan `- <RELATION> → <name>`, gelen `- <name> → <RELATION> → **<node>**`.
-- Hedef node'un section'ı varsa ad link olur: `[<name>](#kn-xxxxxxxx)`. `DEBT` node `(DEBT)` etiketi alır.
-- Açıklama yazılmaz. Açıklama hedef section'dadır.
+Okuyucu derinliğe girmeden önce kavramın hangi kavramlarla nasıl ilişkili olduğunu görür (RQ-5, RQ-6).
+
+| group | edge | line |
+|---|---|---|
+| `**Outgoing** (this concept → other concepts):` | `SEMANTIC`; source = node | `- **<node>** — <RELATION> → <target>` |
+| `**Incoming** (other concepts → this concept):` | `SEMANTIC`; target = node | `- <source> — <RELATION> → **<node>**` |
+
+- Kaynak yalnız graph `SEMANTIC` edge'leridir (§13.4). `<RELATION>` stored `relation_type` token'ıdır. Yön graph'taki yöndür.
+- `NEXT` bu gruplarda durmaz; yalnız `Reading order` satırındadır (§6.3). `PART_OF` `Also part of:` satırında kalır.
+- Satırlar graph `edge_id` sırasıdır. Aynı `(source, relation, target)` bir kez yazılır. `SUPERSEDED` veya graph'ta olmayan uç yazılmaz.
+- Ad, KN section'ı varsa link olur: `[<name>](#kn-xxxxxxxx)`. `DEBT` node `(DEBT)` etiketi alır. Section'ı olmayan node link'sizdir.
+- Edge'i olmayan grup yazılmaz. İki grup da boşsa gövde `Yok.` olur.
+- Açıklama, edge `meaning` metni veya çıkarılmış ilişki yazılmaz. Açıklama hedef section'dadır.
+
+### 6.5 Learning Path
+
+ULA içeriğinin başladığı yerdir. Tek satır gösterilen learning part'larını section sırasıyla listeler:
+
+```text
+#### Learning Path
+
+L0 → L1 → L2 → L3 (collapsed) → Example → Retrieval → Reference (collapsed)
+```
+
+- Level part'ı kısa adıyla (`L0`–`L4`), diğer part'lar adıyla yazılır. `collapsed` part'ı ` (collapsed)` alır.
+- Satır içerik taşımaz. Part metni altta, artifact'ten kopyalandığı gibi durur (§6.2).
+- Collapse yalnız sunumdur. Artifact ve L0–L4 anlamı değişmez.
 
 ---
 
@@ -470,7 +511,7 @@ Orphan: `ROOT` olmayan, `SUPERSEDED` olmayan ve `parent_id` zinciri `ROOT`'a ula
 |---|---|
 | Human Sync record write (`08` §11.1, `08` §12) | HS (yeni / refresh), JOURNEY, MODEL, INDEX |
 | Staleness state write (`08` §6, §6.1) | HS (status line), JOURNEY, MODEL, INDEX |
-| Map sync graph write (`05` §8) | KN (yeni / değişen depth / rename / navigation komşusu), parent KN (local map), MAP, INDEX |
+| Map sync graph write (`05` §8) | KN (yeni / değişen depth / rename / `short_meaning` / navigation veya relation komşusu), parent KN (local map), MAP, INDEX |
 | Queue §B debt write (`03` §17, `06` §20) | DEBT |
 | Derived repair (`07` §L.3) | Yalnız V check'in gösterdiği section'lar |
 
@@ -546,7 +587,7 @@ VERIFY      07 §V yazılmış dosya üzerinde
 - HS section'da her record satırı bir kez görünür: HUMAN veya TRACE katmanında. Özet eklenmez; yalnız sıralama ve katlama vardır.
 - Pass artifact audit kaydıdır. Auditor kararı ve resume bu metne bağlıdır. Bu nedenle değişmez ve silinmez.
 - View, `COMPLETE` artifact'in okuma kopyasıdır. Kullanıcı dersi view'dan okur. Artifact'i normalde okumaz.
-- Concept Home (`06` §8) cross-project kalıcı kaynaktır. View project'e bağlı okuma yüzeyidir.
+- Concept Home (`06` §8) cross-project kalıcı kaynaktır. View project'e bağlı okuma yüzeyidir. KN section'ın Concept Home View'u (§6) onun kopyası veya link'i değildir.
 
 ---
 

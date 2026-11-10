@@ -242,8 +242,8 @@ check("D map sync -> view updated", vd.on_map_sync(pre_graph, rd), "UPDATED")
 d1 = vtext(pd)
 kb = blocks(d1)["KN:KN-0000000b"]
 check("D Light concept in STAY_IN_THE_LOOP.md", ("### KN-0000000b — Temporal Leakage" in kb, "Skor yanlış iyi görünür." in kb), (True, True))
-check("D Light levels only L0-L2 (+Retrieval)", re.findall(r"^#### (.+)$", kb, re.M),
-      ["Where am I?", "L0 — Map", "L1 — Simple Mental Model", "L2 — Mechanism", "Retrieval"])
+check("D Light levels only L0-L2 (+Retrieval), after the Concept Home parts", re.findall(r"^#### (.+)$", kb, re.M),
+      ["Where am I?", "Semantic Relationships", "Learning Path", "L0 — Map", "L1 — Simple Mental Model", "L2 — Mechanism", "Retrieval"])
 check("D Light: no L3 / L4 fabricated", ("L3 —" in kb, "L4 —" in kb, "<details>" in kb), (False, False, False))
 check("D Light: Self-Check / Metadata not shown", ("Self-Check" in kb, "mode: LIGHT" in kb), (False, False))
 check("D marker depth = available_depth", View.spans(d1)["KN:KN-0000000b"][2]["depth"], "L1;L2")
@@ -428,10 +428,10 @@ check("J breadcrumb from parent_id chain", re.search(r"^.* → \*\*Duration Mode
 check("J secondary membership shown separately", "Also part of: Probabilistic Models" in jb["KN:KN-00000020"], True)
 check("J maps carry no lesson text", any("Skor yanlış" in b for k, b in jb.items() if k == "MAP") or any("Skor yanlış" in m[0] for m in lm.values() if m), False)
 check("J lesson text once per concept section", all(b.count("Skor yanlış iyi görünür.") == 1 for k, b in jb.items() if k.startswith("KN:")), True)
-check("J related concepts link to sections", "- USES → [Duration Model](#kn-00000040)" in jb["KN:KN-00000020"], True)
+check("J semantic relationships link to sections", "- **Hidden-State Models** — USES → [Duration Model](#kn-00000040)" in jb["KN:KN-00000020"], True)
 
 # Test K - 07 §V integrity, candidate safety, write failure (spec 33, 34)
-check("K 20 V checks", sorted(P.checks), [f"V-{i:02d}" for i in range(1, 21)])
+check("K 22 V checks", sorted(P.checks), [f"V-{i:02d}" for i in range(1, 23)])
 check("K structural / misleading checks FAIL", sorted(c for c, s in P.checks.items() if s == "FAIL"),
       ["V-02", "V-03", "V-04", "V-05", "V-09", "V-10", "V-12", "V-13"])
 base = vtext(pd)
@@ -689,7 +689,7 @@ check("O status lines", P.status_line, {"SYNCED": "Current", "STALE": "Needs ref
 check("O HS template parts = 09 §5.1 mapping", P.hs_sections, [v for v, _, _ in P.hs_map])
 check("O MODEL template = 09 §3 heading + §5.3 parts", (P.model_template_heading, P.model_sections), (P.model_heading, [v for v, _, _ in P.model_map]))
 check("O Light has no L4 source", P.artifact_map["L4 — Formalism"]["LIGHT"], None)
-check("O collapsed parts", P.collapsed, ["L3", "L4", "Reference"])
+check("O collapsed parts", P.collapsed, ["L3", "L4", "Boundary", "Reference"])
 s07 = (SKILL / "references" / "07_INTEGRITY_CHECKS.md").read_text(encoding="utf-8")
 check("O 07 §L.1 KNOWLEDGE_VIEW is DERIVED", bool(re.search(r"^\| `KNOWLEDGE_VIEW` \| DERIVED \|", s07, re.M)), True)
 check("O 07 §L.3 runs §V", "+ §V + §L checks" in s07, True)
@@ -712,9 +712,9 @@ q0, qt, qg = q_files(), vtext(pq), (pq.root / GRAPH_F).read_text(encoding="utf-8
 qm = RB.metrics(qt, qg, SKILL)
 check("Q baseline tool reports exactly the 09 §13.2 metrics", list(qm), P.metrics)
 check("Q baseline fixture structure", qm, {
-    "lines_total": 286, "lines_visible": 125, "lines_collapsed": 12, "details_blocks": 7, "details_max_depth": 1, "hs_units": 3, "kn_concepts": 2,
-    "graph_nodes": 4, "graph_edges": 2, "graph_edges_by_relation": "NEXT=1; USES=1", "links_internal": 35, "links_broken": 0,
-    "links_from_index": 10, "links_from_hs": 3, "links_from_kn": 10, "kn_without_outgoing_link": 0, "maps_global": 1,
+    "lines_total": 300, "lines_visible": 131, "lines_collapsed": 12, "details_blocks": 7, "details_max_depth": 1, "hs_units": 3, "kn_concepts": 2,
+    "graph_nodes": 4, "graph_edges": 2, "graph_edges_by_relation": "NEXT=1; USES=1", "links_internal": 33, "links_broken": 0,
+    "links_from_index": 10, "links_from_hs": 3, "links_from_kn": 8, "kn_without_outgoing_link": 0, "maps_global": 1,
     "maps_local_structured": 4, "maps_local_by_source": "BLOCK=2; CONCEPT_L0=2; GRAPH=0", "maps_local_mermaid": 0,
     "global_map_edges_by_kind": "HIERARCHY=3; NEXT=1; RELATION=1"})
 check("Q local map sources = 09 §13.2 source table", [x.split("=")[0] for x in qm["maps_local_by_source"].split("; ")], sorted(P.local_sources))
@@ -994,7 +994,8 @@ st = vtext(ps)
 sb = blocks(st)["KN:KN-000000c1"]
 part = lambda b, name: b.split(name, 1)[1].split("\n\n#### ", 1)[0].split("\n</details>", 1)[0]  # noqa: E731
 check("S block-structured Full: parts in 09 §6.1 order", re.findall(r"^(?:#### |<summary><strong>)(.+?)(?:</strong></summary>)?$", sb, re.M),
-      ["Where am I?", "L0 — Map", "L1 — Simple Mental Model", "L2 — Mechanism", "L3 — Theory", "L4 — Formalism", "Retrieval", "Reference", "Related Concepts"])
+      ["Where am I?", "Semantic Relationships", "Learning Path", "L0 — Map", "L1 — Simple Mental Model", "L2 — Mechanism", "L3 — Theory", "L4 — Formalism",
+       "Retrieval", "Reference"])
 check("S L0 = L0 body + LOCAL MAP blocks", part(sb, "#### L0 — Map\n\n"),
       "```text\nB1 Neden → B2 Döngü\n```\n\n##### LOCAL MAP — B2 Üretim Döngüsü\n\n```text\nB2.1 Başlangıç\n   ↓\nB2.2 Süre\n```")
 check("S level part gathers every block under ##### <block>", part(sb, "#### L1 — Simple Mental Model\n\n"),
@@ -1406,5 +1407,209 @@ check("U edge target superseded -> V-20; map sync redraws without its edges; MAP
 check("U edge target superseded: no Human Sync section touched", sorted(k for k in post_u if pre_u.get(k) != post_u[k] and k.startswith("HS:")), [])
 check("U template MAP block lists the 09 §7.1 lines in order",
       [h for h in P.map_lines if h in (SKILL / "templates" / "KNOWLEDGE_VIEW_TEMPLATE.md").read_text(encoding="utf-8").split("SITL:MAP:START", 1)[1]], P.map_lines)
+
+# Test V - Concept Home View (09 §6, §6.3–§6.5, §7.2; 07 V-21, V-22; CLS-6 / VIS-05)
+LIGHT_BR = "docs/learning/passes/LP-20261110-01/ula/LE-LP-20261110-01-03/LIGHT_ULA.md"
+L_BR = dict(L_LIGHT, **{"L3 — Theory": "Birim kök testi sıfır hipotezini sınar.", "Boundary / Confusion Check": "Durağanlık ≠ bağımsızlık.",
+                        "Reference": "- GENERAL THEORY: ADF / KPSS."})
+H, VA, VB, VC, VD, VE, VF = "KN-000000f0", "KN-000000f1", "KN-000000f2", "KN-000000f3", "KN-000000f4", "KN-000000f5", "KN-000000f6"
+VG, VX = "KN-000000f7", "KN-000000f8"
+MEAN = {H: "Gizli durumları sorgulayan algoritmalar.", VA: "Geçmiş gözlemlerle *şimdiki* durumu tahmin eder; `t` anına kadar.",
+        VB: "Rejim süresini ayrı dağılımla modelleyen gizli durum modeli.", VC: "Girdi serisi için karşıt sıfır hipotezli iki test.",
+        VD: "Bağımsız bir not kavramı.", VE: "Birinci alt kavram.", VF: "İkinci alt kavram."}
+
+
+def v_nodes(meaning=MEAN):
+    return [node(ROOT_U, "Project Root", "ROOT"),
+            node(H, "Inference", "DOMAIN", ROOT_U, "L1", arts=LIGHT_A, meaning=meaning[H]),
+            node(VA, "Forward Filter", "CONCEPT", H, "L1; L2", arts=LIGHT_A, meaning=meaning[VA]),
+            node(VB, "Explicit Duration", "CONCEPT", H, "L1; L2; L3; L4", arts=FULL_A, meaning=meaning[VB]),
+            node(VC, "Stationarity Check", "CONCEPT", H, "L1; L2; L3", arts=LIGHT_BR, meaning=meaning[VC]),
+            node(VD, "Isolated Note", "CONCEPT", ROOT_U, "L1; L2", arts=LIGHT_A, meaning=meaning[VD]),
+            node(VE, "Child One", "CONCEPT", VD, "L1", arts=LIGHT_A, meaning=meaning[VE]),
+            node(VF, "Child Two", "CONCEPT", VD, "L1", arts=LIGHT_A, meaning=meaning[VF]),
+            node(VG, "Owed Concept", "CONCEPT", ROOT_U, status="DEBT", meaning="Borç."),
+            node(VX, "Old Concept", "CONCEPT", ROOT_U, "L1", status="SUPERSEDED", arts=LIGHT_A, meaning="Eski.")]
+
+
+V_EDGES = [edge("KE-0001", VA, "NEXT", VB), edge("KE-0002", VB, "NEXT", VC), edge("KE-0003", VC, "NEXT", VD),
+           edge("KE-0004", VA, "USES", VB), edge("KE-0005", VA, "DEPENDS_ON", VC), edge("KE-0006", VB, "COMPARED_WITH", VA),
+           edge("KE-0007", VC, "EVIDENCE_FOR", VA), edge("KE-0008", VA, "REQUIRES", VG), edge("KE-0009", VA, "USES", VX),
+           edge("KE-0010", VA, "USES", VB), edge("KE-0011", VD, "PART_OF", H), edge("KE-0012", VA, "PRODUCES", "KN-0000dead"),
+           edge("KE-0013", VB, "IMPLEMENTED_BY", VE)]
+pv = project("pv", steps=1)
+vv = View(P, pv.root)
+sync(pv, vv)
+light(pv, LIGHT_A, "x", L_LIGHT)
+full(pv, FULL_A, L_FULL)
+light(pv, LIGHT_BR, "Stationarity", L_BR)
+write_graph(pv, 1, v_nodes(), V_EDGES)
+v_auth = lambda: {f.relative_to(pv.root).as_posix(): sha(f.read_bytes()) for f in sorted((pv.root / "docs/learning").rglob("*"))  # noqa: E731
+                  if f.is_file() and f.name != "STAY_IN_THE_LOOP.md"}
+v_auth0, hs_v0 = v_auth(), blocks(vtext(pv))[hs(1)]
+vv.on_map_sync(None)
+vt = vtext(pv)
+vb = blocks(vt)
+kn = lambda i: vb[f"KN:{i}"]  # noqa: E731
+heads = lambda b: re.findall(r"^(?:#### |<summary><strong>)(.+?)(?:</strong></summary>)?$", b, re.M)  # noqa: E731
+path_line = lambda b: b.split("#### Learning Path\n\n", 1)[1].split("\n", 1)[0]  # noqa: E731
+summaries = lambda b: re.findall(r"^<summary><strong>(.+)</strong></summary>$", b, re.M)  # noqa: E731
+group = lambda b: b.split("#### Semantic Relationships\n\n", 1)[1].split("\n\n#### ", 1)[0]  # noqa: E731
+# the six CLS-6 concept shapes
+check("V shape L1/L2 only: Concept Home parts, then L0-L2 + Retrieval open, nothing collapsed",
+      (heads(kn(VA)), path_line(kn(VA)), kn(VA).count("<details>")),
+      (["Where am I?", "Semantic Relationships", "Learning Path", "L0 — Map", "L1 — Simple Mental Model", "L2 — Mechanism", "Retrieval"],
+       "L0 → L1 → L2 → Retrieval", 0))
+check("V shape L1-L4: L0-L2, Example, Retrieval open; L3, L4, Reference collapsed",
+      (heads(kn(VB)), path_line(kn(VB)), summaries(kn(VB))),
+      (["Where am I?", "Semantic Relationships", "Learning Path", "L0 — Map", "L1 — Simple Mental Model", "L2 — Mechanism", "L3 — Theory",
+        "L4 — Formalism", "Example", "Retrieval", "Reference"],
+       "L0 → L1 → L2 → L3 (collapsed) → L4 (collapsed) → Example → Retrieval → Reference (collapsed)", ["L3 — Theory", "L4 — Formalism", "Reference"]))
+check("V shape no local map: 2 primary children (< local_map_min_children) -> no graph map; ULA L0 kept",
+      (len(vv.children(vv.sources(), next(n for n in vv.sources()["nodes"] if n["node_id"] == VD))), vm.mermaid_blocks(kn(VD) + "\n"),
+       "#### L0 — Map" in kn(VD)), (2, [], True))
+check("V shape multiple relationships: outgoing / incoming groups, stored tokens, graph direction, edge_id order", group(kn(VA)),
+      "**Outgoing** (this concept → other concepts):\n\n- **Forward Filter** — USES → [Explicit Duration](#kn-000000f2)\n"
+      "- **Forward Filter** — DEPENDS_ON → [Stationarity Check](#kn-000000f3)\n- **Forward Filter** — REQUIRES → Owed Concept (DEBT)\n\n"
+      "**Incoming** (other concepts → this concept):\n\n- [Explicit Duration](#kn-000000f2) — COMPARED_WITH → **Forward Filter**\n"
+      "- [Stationarity Check](#kn-000000f3) — EVIDENCE_FOR → **Forward Filter**")
+check("V shape no semantic relationships: explicit empty state, NEXT / PART_OF not promoted", (group(kn(VD)), "Also part of: [Inference](#kn-000000f0)" in kn(VD),
+      re.findall(r"^Reading order — (.+)$", kn(VD), re.M)), ("Yok.", True, ["Previous: [Stationarity Check](#kn-000000f3)"]))
+check("V shape Boundary + Reference: both collapsed, L3 collapsed, L0-L2 + Retrieval open",
+      (heads(kn(VC)), path_line(kn(VC)), summaries(kn(VC))),
+      (["Where am I?", "Semantic Relationships", "Learning Path", "L0 — Map", "L1 — Simple Mental Model", "L2 — Mechanism", "L3 — Theory", "Boundary",
+        "Retrieval", "Reference"],
+       "L0 → L1 → L2 → L3 (collapsed) → Boundary (collapsed) → Retrieval → Reference (collapsed)", ["L3 — Theory", "Boundary", "Reference"]))
+# identity, anchors, navigation
+kn_ids = [n["node_id"] for n in vv.kn_nodes(vv.sources())]
+check("V identity: marker, anchor and heading per section from node_id / canonical_name", [kn(i).splitlines()[1:3] for i in kn_ids],
+      [[f'<a id="{n["node_id"].lower()}"></a>', f"### {n['node_id']} — {n['canonical_name']}"] for n in vv.kn_nodes(vv.sources())])
+check("V anchors: each KN anchor once, every link resolves", ([a for a in (i.lower() for i in kn_ids) if vm.anchors_of(vt).count(a) != 1],
+      vv.broken_link_keys(vt, View.spans(vt))), ([], []))
+check("V breadcrumb / parent / reading order unchanged (09 §6.3)", [f"#### Where am I?\n\n{vv.navigation(vv.sources(), n)}\n\n" in kn(n["node_id"])
+      for n in vv.kn_nodes(vv.sources())], [True] * len(kn_ids))
+check("V reading order from NEXT only", [re.findall(r"^Reading order — (.+)$", kn(i), re.M) for i in (VA, VB, VC)],
+      [["Next: [Explicit Duration](#kn-000000f2)"], ["Previous: [Forward Filter](#kn-000000f1) · Next: [Stationarity Check](#kn-000000f3)"],
+       ["Previous: [Explicit Duration](#kn-000000f2) · Next: [Isolated Note](#kn-000000f4)"]])
+# orientation
+orient = lambda b: re.findall(r"^\*\*In one sentence:\*\* (.*)$", b, re.M)  # noqa: E731
+check("V orientation = graph short_meaning, verbatim (markdown characters kept)", [orient(kn(i)) for i in kn_ids], [[MEAN[i]] for i in kn_ids])
+check("V orientation written once in the whole view (no copy in MAP, INDEX or elsewhere)", [vt.count(MEAN[i]) for i in kn_ids], [1] * len(kn_ids))
+check("V orientation not derived from system_role, lesson text or name", ("Rol." in "".join(orient(vt)), "Skor yanlış" in "".join(orient(vt))), (False, False))
+order = lambda b, *ms: [b.index(m) for m in ms]  # noqa: E731
+pos_h = order(kn(H), "[Project Home](#project-home)", "**In one sentence:**", "```mermaid", "#### Semantic Relationships", "#### Learning Path", "#### L0 — Map")
+check("V order: breadcrumb -> orientation -> local map -> relationships -> learning path -> L0", pos_h == sorted(pos_h), True)
+# graph local map vs ULA L0
+lm_h = vm.mermaid_blocks(kn(H) + "\n")
+check("V graph local map: >= 3 primary children qualifies (synthetic; HSMM has none)", (len(lm_h), sorted(re.findall(r"KN_(\w+)\[", lm_h[0]))),
+      (1, ["000000f0", "000000f1", "000000f2", "000000f3"]))
+check("V graph local map draws only graph nodes and the primary children",
+      (re.findall(r"^    KN_000000f0 --> KN_(\w+)\[", lm_h[0], re.M), [x for x in re.findall(r"KN_(\w+)", lm_h[0]) if f"KN-{x}" not in {n["node_id"] for n in vv.sources()["nodes"]}]),
+      (["000000f1", "000000f2", "000000f3"], []))
+check("V local map counted as GRAPH, ULA L0 kept separately in every section", (RB.metrics(vt, (pv.root / GRAPH_F).read_text(encoding="utf-8"), SKILL)["maps_local_by_source"],
+      [("#### L0 — Map" in kn(i)) for i in kn_ids]), (f"BLOCK=0; CONCEPT_L0={len(kn_ids)}; GRAPH=1", [True] * len(kn_ids)))
+check("V threshold unchanged", P.int_rule("local_map_min_children"), 3)
+# relationships: direction, tokens, NEXT separation, provenance
+rel_lines = {i: [l for l in group(kn(i)).splitlines() if l.startswith("- ")] for i in kn_ids}
+ids_of = lambda l: re.findall(r"#(kn-[0-9a-f]{8})", l)  # noqa: E731
+triples = {(e["source_node_id"], e["relation_type"], e["target_node_id"]) for e in V_EDGES}
+parsed = []
+for i, lines in rel_lines.items():
+    name = next(n["canonical_name"] for n in vv.kn_nodes(vv.sources()) if n["node_id"] == i)
+    for l in lines:
+        m = re.match(r"^- (.+?) — ([A-Z_]+) → (.+)$", l)
+        other = "KN-" + ids_of(l)[0][3:] if ids_of(l) else {"Owed Concept (DEBT)": VG}.get(m.group(3), "?")
+        parsed.append((m.group(1), m.group(2), m.group(3), i, other, name))
+check("V every listed relation is a stored graph edge in its stored direction",
+      [(s == f"**{nm}**" and (i, r, o) in triples) or (t == f"**{nm}**" and (o, r, i) in triples) for s, r, t, i, o, nm in parsed], [True] * len(parsed))
+check("V relation tokens: SEMANTIC class only; COMPARED_WITH kept; no COMPARES_WITH / EVALUATED_BY",
+      ({r for _, r, _, _, _, _ in parsed} <= set(P.edge_classes["SEMANTIC"]), "COMPARED_WITH" in vt, "COMPARES_WITH" in vt, "EVALUATED_BY" in vt), (True, True, False, False))
+check("V NEXT never in a semantic group; the token appears only inside Mermaid maps", ([i for i, ls in rel_lines.items() if any("NEXT" in l for l in ls)],
+      sorted({l.split(" — ")[0] for b in vb.values() for l in b.splitlines() if "NEXT" in l and not l.startswith("    ")})), ([], []))
+check("V PART_OF, SUPERSEDED, missing and duplicate edges not listed",
+      ([l for ls in rel_lines.values() for l in ls if "PART_OF" in l or "Old Concept" in l or "dead" in l], rel_lines[VA].count(
+          "- **Forward Filter** — USES → [Explicit Duration](#kn-000000f2)")), ([], 1))
+check("V incoming relation shown at the target too", rel_lines[VE], ["- [Explicit Duration](#kn-000000f2) — IMPLEMENTED_BY → **Child One**"])
+check("V relationships before learning content in every section", [kn(i).index("#### Semantic Relationships") < kn(i).index("#### Learning Path") <
+      min(kn(i).index(x) for x in ("#### L0 — Map", "#### L1 — Simple Mental Model") if x in kn(i)) for i in kn_ids], [True] * len(kn_ids))
+check("V no Related Concepts part left", ("Related Concepts" in vt, "Related Concepts" in P.parts), (False, False))
+# ULA preservation and authority
+src_lines = lambda filled, keys: [l for k in keys for l in filled[k].splitlines() if l.strip() and not l.startswith("```")]  # noqa: E731
+miss = lambda b, lines: [l for l in lines if l not in b.splitlines() and not re.search(rf"^#+ {re.escape(l.lstrip('# '))}$", b, re.M)]  # noqa: E731
+check("V every learning line of each artifact is in its Concept Home View",
+      (miss(kn(VA), src_lines(L_LIGHT, L_LIGHT)), miss(kn(VB), src_lines(L_FULL, L_FULL)), miss(kn(VC), src_lines(L_BR, L_BR))), ([], [], []))
+inside = lambda b, part: (b.split(f"<summary><strong>{part}</strong></summary>", 1) + [""])[1].split("</details>")[0]  # noqa: E731
+check("V collapsed bodies keep their full text", ("Birim kök testi sıfır hipotezini sınar." in inside(kn(VC), "L3 — Theory"),
+      "Durağanlık ≠ bağımsızlık." in inside(kn(VC), "Boundary"), "$$E = \\frac{1}{K}\\sum_k e_k$$" in inside(kn(VB), "L4 — Formalism")), (True, True, True))
+check("V Example and Retrieval stay open with their text", ("#### Example\n\nAylık veri, 12 pencere." in kn(VB), "#### Retrieval\n\nPencere neden ileri kayar?" in kn(VB),
+      "#### Retrieval\n\nHangi feature gelecek bilgisini taşır?" in kn(VA)), (True, True, True))
+check("V authoritative files byte-identical (graph, artifacts, sync state, records)", v_auth(), v_auth0)
+check("V no second store: only STAY_IN_THE_LOOP.md is human-facing; no Concept Home (06) file or link",
+      (human_files(pv.root), "CH-" in vt, [p for p in (pv.root / "docs/learning").rglob("*") if p.is_file() and "concepts" in p.parts]), (["STAY_IN_THE_LOOP.md"], False, []))
+check("V Human Sync section untouched by the Concept Home write", vb[hs(1)], hs_v0)
+check("V view clean; incremental == rebuild; deterministic", (vv.integrity(vt), vt == vv.rebuild(), vv.rebuild() == vv.rebuild()), ([], True, True))
+# incremental: short_meaning change and a new relation re-render only the affected sections
+g_v1 = (pv.root / GRAPH_F).read_text(encoding="utf-8")
+write_graph(pv, 2, v_nodes(dict(MEAN, **{VD: "Yeni kısa anlam."})), V_EDGES + [edge("KE-0014", VD, "CAUSES", VE)])
+vv.on_map_sync(g_v1)
+vb2 = blocks(vtext(pv))
+check("V graph change: only the touched KN sections, MAP and INDEX rewritten; == rebuild",
+      (sorted(k for k in vb2 if vb2[k] != vb[k]), orient(vb2[f"KN:{VD}"]), vtext(pv) == vv.rebuild()),
+      ([f"KN:{VD}", f"KN:{VE}", "MAP"], ["Yeni kısa anlam."], True))
+g_v2 = (pv.root / GRAPH_F).read_text(encoding="utf-8")
+write_graph(pv, 3, v_nodes(), V_EDGES)
+vv.on_map_sync(g_v2)
+base_v = vtext(pv)
+check("V graph restored: view == first render", base_v, vt)
+
+
+def v_crafted(fn):
+    vv.f.write_text(fn(base_v), encoding="utf-8")
+    try:
+        return [c for c, _ in vv.integrity(vtext(pv))]
+    finally:
+        vv.f.write_text(base_v, encoding="utf-8")
+
+
+check("V paraphrased orientation -> V-21", v_crafted(lambda t: t.replace(MEAN[VB], "Süre modelleyen bir model.")), ["V-21"])
+check("V orientation removed -> V-21", v_crafted(lambda t: t.replace(f"**In one sentence:** {MEAN[VB]}\n\n", "")), ["V-21"])
+check("V relation direction reversed -> V-21", v_crafted(lambda t: t.replace("- **Forward Filter** — USES → [Explicit Duration](#kn-000000f2)",
+      "- [Explicit Duration](#kn-000000f2) — USES → **Forward Filter**")), ["V-21"])
+check("V relation token swapped -> V-21", v_crafted(lambda t: t.replace("— EVIDENCE_FOR → **Forward Filter**", "— DEPENDS_ON → **Forward Filter**")), ["V-21"])
+check("V NEXT added to a semantic group -> V-21", v_crafted(lambda t: t.replace("- **Forward Filter** — USES → [Explicit Duration](#kn-000000f2)\n",
+      "- **Forward Filter** — USES → [Explicit Duration](#kn-000000f2)\n- **Forward Filter** — NEXT → [Explicit Duration](#kn-000000f2)\n")), ["V-21"])
+check("V invented relation in the empty state -> V-21", v_crafted(lambda t: t.replace("#### Semantic Relationships\n\nYok.",
+      "#### Semantic Relationships\n\n**Outgoing** (this concept → other concepts):\n\n- **Isolated Note** — USES → [Inference](#kn-000000f0)")), ["V-21"])
+# VIS-04 format section (flat Related Concepts, no orientation / path) -> V-21; repair == rebuild; ULA body unchanged
+old_a = kn(VA).replace(f"\n\n**In one sentence:** {MEAN[VA]}", "")
+old_a = re.sub(r"\n\n#### Semantic Relationships\n\n.*?\n\n(?=#### L0)", "\n\n", old_a, flags=re.S)
+old_a = old_a.replace(f"\n<!-- SITL:KN:{VA}:END -->", f"\n\n#### Related Concepts\n\n- NEXT → [Explicit Duration](#kn-000000f2)\n"
+                      f"- USES → [Explicit Duration](#kn-000000f2)\n<!-- SITL:KN:{VA}:END -->")
+legacy = base_v.replace(kn(VA), old_a)
+vv.f.write_text(legacy, encoding="utf-8")
+lg_found = [c for c, _ in vv.integrity(vtext(pv))]
+lg_res = vv.repair()[1]
+check("V VIS-04 format concept -> V-21 only; repair rewrites that section; == rebuild; ULA body kept",
+      (lg_found, lg_res, vtext(pv) == base_v, old_a.split("#### L0 — Map", 1)[1].split("\n\n#### Related Concepts")[0]
+       == kn(VA).split("#### L0 — Map", 1)[1].split(f"\n<!-- SITL:KN:{VA}:END")[0]), (["V-21"], "REPAIRED", True, True))
+# missing / empty short_meaning: no line, nothing invented, V-22 reported, not repaired
+pm5 = project("pv_missing", steps=1)
+vm5 = View(P, pm5.root)
+light(pm5, LIGHT_A, "x", L_LIGHT)
+write_graph(pm5, 1, [node(ROOT_U, "Project Root", "ROOT"), node(VA, "Dash Meaning", "CONCEPT", ROOT_U, "L1", arts=LIGHT_A, meaning="-"),
+                     node(VB, "Empty Meaning", "CONCEPT", ROOT_U, "L1", arts=LIGHT_A, meaning=""),
+                     node(VC, "Has Meaning", "CONCEPT", ROOT_U, "L1", arts=LIGHT_A, meaning="Var.")], [])
+vm5.update([])
+m5 = blocks(vtext(pm5))
+check("V missing short_meaning ('-' / empty): no orientation line, no substitute text",
+      [(orient(m5[f"KN:{i}"]), "Rol." in m5[f"KN:{i}"].split("#### Semantic")[0], f"Learning depth: L1" in m5[f"KN:{i}"]) for i in (VA, VB, VC)],
+      [([], False, True), ([], False, True), (["Var."], False, True)])
+check("V missing short_meaning -> V-22 only (report); repair writes nothing",
+      (vm5.integrity(vtext(pm5)), vm5.repair(), vtext(pm5) == vm5.rebuild()), ([("V-22", "WARNING")], ([("V-22", "WARNING")], "NOTHING"), True))
+check("V template KN parts in 09 §6.1 order (non-artifact rows as headings / lines)",
+      [h for h in heads(tpl.split("<!-- SITL:KN:", 1)[1].split("<!-- SITL:KN:", 1)[0])],
+      ["Where am I?", "Semantic Relationships", "Learning Path"] + [p for p in P.parts if p in P.artifact_map])
+check("V template carries the orientation line and both relationship groups", ("**In one sentence:**" in tpl, [g for g, _, _, _ in P.rel_groups if g in tpl]),
+      (True, [g for g, _, _, _ in P.rel_groups]))
 
 report(RESULTS)
