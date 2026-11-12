@@ -54,6 +54,8 @@ STAY_IN_THE_LOOP.md (derived)  → human-facing projection
 | map_label_max_chars | 48 |
 | global_map_max_nodes | 30 |
 | collapsed | L3; L4; Boundary; Reference |
+| recall_relations | REQUIRES; USES; DEPENDS_ON |
+| recall_evidence | VERIFIED |
 | key_terms_max | 5 |
 | remember_max | 5 |
 
@@ -315,6 +317,7 @@ KN section kavramın **Concept Home View**'udur: okuyucuyu ders derinliğinden �
 | In one sentence | graph `short_meaning`, aynen | Boş veya `-` değilse |
 | Local Map | graph primary child'lar + node'un relation'ları | Primary child sayısı ≥ `local_map_min_children` |
 | Semantic Relationships | graph `SEMANTIC` edge'leri (§6.4) | Her zaman |
+| Recall | graph edge `meaning` + hedef `short_meaning` (§6.6) | En az bir capsule varsa |
 | Learning Path | gösterilen learning part'ları (§6.5) | Her zaman |
 | L0 — Map | artifact L0 | Artifact'te doluysa |
 | L1 — Simple Mental Model | artifact L1 | `available_depth` içinde |
@@ -409,7 +412,7 @@ Okuyucu derinliğe girmeden önce kavramın hangi kavramlarla nasıl ilişkili o
 - Satırlar graph `edge_id` sırasıdır. Aynı `(source, relation, target)` bir kez yazılır. `SUPERSEDED` veya graph'ta olmayan uç yazılmaz.
 - Ad, KN section'ı varsa link olur: `[<name>](#kn-xxxxxxxx)`. `DEBT` node `(DEBT)` etiketi alır. Section'ı olmayan node link'sizdir.
 - Edge'i olmayan grup yazılmaz. İki grup da boşsa gövde `Yok.` olur.
-- Açıklama, edge `meaning` metni veya çıkarılmış ilişki yazılmaz. Açıklama hedef section'dadır.
+- Açıklama, edge `meaning` metni veya çıkarılmış ilişki yazılmaz. Açıklama hedef section'dadır. Edge `meaning` yalnız Recall'da durur (§6.6).
 
 ### 6.5 Learning Path
 
@@ -424,6 +427,25 @@ L0 → L1 → L2 → L3 (collapsed) → Example → Retrieval → Reference (col
 - Level part'ı kısa adıyla (`L0`–`L4`), diğer part'lar adıyla yazılır. `collapsed` part'ı ` (collapsed)` alır.
 - Satır içerik taşımaz. Part metni altta, artifact'ten kopyalandığı gibi durur (§6.2).
 - Collapse yalnız sunumdur. Artifact ve L0–L4 anlamı değişmez.
+
+### 6.6 Recall
+
+Kavram daha önce okunan bir kavramı kullanıyorsa okuyucu o bölüme dönmeden hatırlar: Bu neydi? Burada ne için kullanılıyor? Tam kavram nerede?
+
+| line | kaynak | biçim |
+|---|---|---|
+| capsule | hedef node `short_meaning`, aynen; link hedef KN section'ı | `- [<target>](#kn-xxxxxxxx) — <short_meaning>` |
+| used | edge `meaning`, aynen; stored token | `  - **Used here:** <meaning> (<RELATION>)` |
+
+- Part `#### Recall` heading'idir. Semantic Relationships'ten sonra, Learning Path'ten önce durur. Kopyalanan ULA içeriğinin dışındadır.
+- Kaynak: source = bu node olan `SEMANTIC` edge. `relation_type` `recall_relations` içindedir. `evidence_status` `recall_evidence` ile başlar.
+- Hedef KN section'ı olan node'dur ve §3 section sırasında bu section'dan önce durur. Sonra duran hedef capsule almaz. Sıra öğrenme zamanı veya nedensellik anlamı taşımaz.
+- `NEXT`, `PART_OF` ve diğer relation'lar capsule üretmez. `DEBT`, `SUPERSEDED`, graph'ta olmayan veya section'ı olmayan hedef capsule almaz.
+- Hedef başına en fazla bir capsule vardır. Aynı hedefe giden edge'ler tek capsule'da, `edge_id` sırasıyla birer `used` satırıdır. Aynı `(source, relation, target)` bir kez yazılır. Capsule'lar ilk edge'lerinin `edge_id` sırasıyla durur.
+- `<target>` hedef `canonical_name`, link hedef KN section anchor'ıdır (§3.2). Capsule başka capsule'a link vermez. Hedef hep önce durduğu için recall zinciri döngü kuramaz.
+- Hedef `short_meaning` veya bir edge `meaning` boş veya `-` ise capsule yazılmaz. V-24 raporlar. Düzeltme graph'tadır. Metin uydurulmaz.
+- Metin yalnız stored alanlardır. ULA metni, özet veya açıklama eklenmez. `Used here` edge `meaning`'idir; tam ders açıklaması iddiası taşımaz.
+- Capsule yoksa part yazılmaz. Capsule açık durur. Sayı sınırı yoktur.
 
 ---
 
@@ -511,7 +533,7 @@ Orphan: `ROOT` olmayan, `SUPERSEDED` olmayan ve `parent_id` zinciri `ROOT`'a ula
 |---|---|
 | Human Sync record write (`08` §11.1, `08` §12) | HS (yeni / refresh), JOURNEY, MODEL, INDEX |
 | Staleness state write (`08` §6, §6.1) | HS (status line), JOURNEY, MODEL, INDEX |
-| Map sync graph write (`05` §8) | KN (yeni / değişen depth / rename / `short_meaning` / navigation veya relation komşusu), parent KN (local map), MAP, INDEX |
+| Map sync graph write (`05` §8) | KN (yeni / değişen depth / rename / `short_meaning` / navigation veya relation komşusu / recall hedefi, edge `meaning` veya `evidence_status`), parent KN (local map), MAP, INDEX |
 | Queue §B debt write (`03` §17, `06` §20) | DEBT |
 | Derived repair (`07` §L.3) | Yalnız V check'in gösterdiği section'lar |
 
@@ -583,6 +605,7 @@ VERIFY      07 §V yazılmış dosya üzerinde
 | Pass artifact | Audit, resume, provenance |
 
 - Aynı ders metni iki section'da yazılmaz. HS section kavramı öğretmez; KN section'a link verebilir.
+- Recall capsule ders metni değildir. Graph `short_meaning` ve edge `meaning` alanlarıdır (§6.6). ULA metni kopyalanmaz.
 - Map node'u paragraf taşımaz.
 - HS section'da her record satırı bir kez görünür: HUMAN veya TRACE katmanında. Özet eklenmez; yalnız sıralama ve katlama vardır.
 - Pass artifact audit kaydıdır. Auditor kararı ve resume bu metne bağlıdır. Bu nedenle değişmez ve silinmez.

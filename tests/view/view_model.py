@@ -98,6 +98,15 @@ class Protocol:
         self.orientation = ("In one sentence", TICK.findall(part_rows["In one sentence"][1])[0])
         self.rel_groups = [(TICK.findall(r[0])[0], TICK.findall(r[1])[0], "source" if "source = node" in r[1] else "target", TICK.findall(r[2])[0])
                            for r in sm.tables(sm.section(p, "### 6.4 Semantic Relationships"))[0]]
+        rec = sm.section(p, "### 6.6 Recall")
+        lines = {r[0]: (TICK.findall(r[1])[0], TICK.findall(r[2])[0]) for r in sm.tables(rec)[0]}
+        self.recall_rule = {"relations": [x.strip() for x in self.rules["recall_relations"].split(";")], "evidence": self.rules["recall_evidence"],
+                            "capsule": lines["capsule"], "used": lines["used"],
+                            "side": re.search(r"^- Kaynak: (source|target) = bu node", rec, re.M).group(1),
+                            "earlier": bool(re.search(r"^- Hedef KN section'ı olan node'dur ve §3 section sırasında bu section'dan önce durur", rec, re.M)),
+                            "one_per_target": bool(re.search(r"^- Hedef başına en fazla bir capsule", rec, re.M)),
+                            "edge_id_order": all(s in rec for s in ("`edge_id` sırasıyla birer `used` satırıdır",
+                                                                     "Capsule'lar ilk edge'lerinin `edge_id` sırasıyla durur"))}
         heading = lambda c: TICK.findall(c)[0].lstrip("# ") if "`" in c else None  # noqa: E731
         mapping = sm.tables(sm.section(p, "### 6.2 Artifact mapping"))
         self.artifact_map = {r[0]: {"LIGHT": heading(r[1]), "FULL": heading(r[2])} for r in mapping[0]}
@@ -453,6 +462,39 @@ class View:
                 out += ["", label, ""] + lines
         return "\n".join(out + (["", "Yok."] if len(out) == 1 else []))
 
+    def recall_capsules(self, S, node):
+        """09 §6.6: [(target, edges)] for earlier KN targets of qualifying edges, and the [(target, edges)] omitted for empty text (V-24)."""
+        R, nid = self.P.recall_rule, node["node_id"]
+        order = {n["node_id"]: i for i, n in enumerate(self.kn_nodes(S))}
+        if nid not in order:
+            return [], []
+        by = {n["node_id"]: n for n in S["nodes"]}
+        other = "target" if R["side"] == "source" else "source"
+        groups, seen = {}, set()
+        edges = sorted(S["edges"], key=lambda e: int(e["edge_id"].removeprefix("KE-"))) if R["edge_id_order"] else S["edges"]
+        for e in edges:
+            t, key = e[f"{other}_node_id"], (e["source_node_id"], e["relation_type"], e["target_node_id"])
+            if (e[f"{R['side']}_node_id"] == nid and e["relation_type"] in R["relations"] and e["evidence_status"].startswith(R["evidence"])
+                    and t in order and t != nid and (not R["earlier"] or order[t] < order[nid]) and key not in seen):
+                seen.add(key)
+                groups.setdefault(t if R["one_per_target"] else e["edge_id"], (by[t], []))[1].append(e)
+        blank = lambda v: v.strip() in ("", "-")  # noqa: E731
+        keep = [g for g in groups.values() if not blank(g[0][R["capsule"][0]]) and not any(blank(e[R["used"][0]]) for e in g[1])]
+        return keep, [g for g in groups.values() if g not in keep]
+
+    def recall(self, S, node):
+        """09 §6.6 Recall part: per capsule the linked target and its short_meaning, one 'Used here' line per edge; None without capsules."""
+        R = self.P.recall_rule
+        keep = self.recall_capsules(S, node)[0]
+        if not keep:
+            return None
+        out = ["#### Recall", ""]
+        for t, es in keep:
+            out.append(R["capsule"][1].replace("<target>", t["canonical_name"]).replace("kn-xxxxxxxx", t["node_id"].lower())
+                       .replace("<short_meaning>", t[R["capsule"][0]]))
+            out += [R["used"][1].replace("<meaning>", e[R["used"][0]]).replace("<RELATION>", e["relation_type"]) for e in es]
+        return "\n".join(out)
+
     def short_part(self, part):
         level = re.match(r"(L\d) —", part)
         return level.group(1) if level else part
@@ -463,7 +505,7 @@ class View:
         return "#### Learning Path\n\n" + (" → ".join(items) or "Yok.")
 
     def render_kn(self, S, node, rd):
-        """09 §6: Concept Home View: navigation, orientation, local map, semantic relationships, learning path, ULA parts."""
+        """09 §6: Concept Home View: navigation, orientation, local map, semantic relationships, recall, learning path, ULA parts."""
         by = {n["node_id"]: n for n in S["nodes"]}
         nid, depth = node["node_id"], depth_list(node["available_depth"])
         parts = self.artifact_parts(node, rd)
@@ -482,7 +524,8 @@ class View:
         if lm:
             out += ["", lm]
         shown = [p for p in self.P.parts if p in parts and (self.short_part(p) == p or self.short_part(p) == "L0" or self.short_part(p) in depth)]
-        out += ["", self.relations(S, node), "", self.learning_path(shown)]
+        rc = self.recall(S, node)
+        out += ["", self.relations(S, node)] + (["", rc] if rc else []) + ["", self.learning_path(shown)]
         for part in shown:
             body = parts[part][0]
             if self.short_part(part) in self.P.collapsed:
@@ -904,7 +947,7 @@ class View:
         kids = [(k["node_id"], k["canonical_name"], k["node_status"]) for k in self.children(S, n)]
         crumbs = [(c["node_id"], c["canonical_name"], c["node_status"], c["available_depth"]) for c in self.chain(S, n)]
         return (n["canonical_name"], n[self.P.orientation[1]], n["available_depth"], n["node_status"], n["source_artifacts"], n["source_event_ids"],
-                rel, kids, crumbs)
+                rel, kids, crumbs, self.recall(S, n))
 
     def on_map_sync(self, pre_graph_text, rd=None, fail_on=None):
         """Changed KN sections only: compares graph rows before and after the map sync write (graph only)."""
@@ -1049,6 +1092,10 @@ class View:
                 add("V-21")
             if [n for n in self.kn_nodes(S) if f"KN:{n['node_id']}" in spans and not self.orientation(n)]:
                 add("V-22")
+            if self.recall_stale(text, spans, S):
+                add("V-23")
+            if [n for n in self.kn_nodes(S) if f"KN:{n['node_id']}" in spans and self.recall_capsules(S, n)[1]]:
+                add("V-24")
         else:
             found = [(c, s) for c, s in found if s == "FAIL"]
         return sorted(set(found))
@@ -1087,6 +1134,21 @@ class View:
                 out.append(key)
         return out
 
+    def recall_stale(self, text, spans, S):
+        """07 V-23: KN sections whose Recall part differs from the 09 §6.6 render or does not stand before Learning Path."""
+        nodes, out = {n["node_id"]: n for n in S["nodes"]}, []
+        for key, span in spans.items():
+            n = nodes.get(key[3:]) if key.startswith("KN:") else None
+            if not n:
+                continue
+            body = self.lines_of(text, span)
+            want = self.recall(S, n)
+            got = re.findall(r"^#### Recall\n.*?(?=\n\n(?:#### |<details>)|\n<!-- SITL:)", body, re.M | re.S)
+            head = body.split("\n#### Learning Path\n", 1)[0]
+            if got != ([want] if want else []) or (want and want not in head):
+                out.append(key)
+        return out
+
     def broken_link_keys(self, text, spans):
         """07 V-01: sections with an internal link to an anchor the file does not produce (GitHub -1, -2 suffixes included)."""
         made, seen = set(), {}
@@ -1102,7 +1164,7 @@ class View:
         found = self.integrity(text, S)
         if any(s == "FAIL" for _, s in found):
             return found, "FAIL"
-        if not [c for c, _ in found if c not in ("V-15", "V-16", "V-19", "V-22")]:
+        if not [c for c, _ in found if c not in ("V-15", "V-16", "V-19", "V-22", "V-24")]:
             return found, "NOTHING"
         if text is None:
             self.update([], rd)
@@ -1121,7 +1183,7 @@ class View:
                     n = next(x for x in S["nodes"] if x["node_id"] == k[3:])
                     if spans[k][2].get("depth") != ";".join(depth_list(n["available_depth"])) or f"### {n['node_id']} — {n['canonical_name']}\n" not in cur + "\n":
                         keys.append(k)
-        keys += self.nav_stale(text, spans, S) + self.home_stale(text, spans, S) + self.broken_link_keys(text, spans) + ["JOURNEY"] * self.journey_stale(text, spans, S)
+        keys += self.nav_stale(text, spans, S) + self.home_stale(text, spans, S) + self.recall_stale(text, spans, S) + self.broken_link_keys(text, spans) + ["JOURNEY"] * self.journey_stale(text, spans, S)
         self.update(keys + ["MAP", "INDEX"], rd)
         return found, "REPAIRED"
 

@@ -431,7 +431,7 @@ check("J lesson text once per concept section", all(b.count("Skor yanlış iyi g
 check("J semantic relationships link to sections", "- **Hidden-State Models** — USES → [Duration Model](#kn-00000040)" in jb["KN:KN-00000020"], True)
 
 # Test K - 07 §V integrity, candidate safety, write failure (spec 33, 34)
-check("K 22 V checks", sorted(P.checks), [f"V-{i:02d}" for i in range(1, 23)])
+check("K 24 V checks", sorted(P.checks), [f"V-{i:02d}" for i in range(1, 25)])
 check("K structural / misleading checks FAIL", sorted(c for c, s in P.checks.items() if s == "FAIL"),
       ["V-02", "V-03", "V-04", "V-05", "V-09", "V-10", "V-12", "V-13"])
 base = vtext(pd)
@@ -712,9 +712,9 @@ q0, qt, qg = q_files(), vtext(pq), (pq.root / GRAPH_F).read_text(encoding="utf-8
 qm = RB.metrics(qt, qg, SKILL)
 check("Q baseline tool reports exactly the 09 §13.2 metrics", list(qm), P.metrics)
 check("Q baseline fixture structure", qm, {
-    "lines_total": 300, "lines_visible": 131, "lines_collapsed": 12, "details_blocks": 7, "details_max_depth": 1, "hs_units": 3, "kn_concepts": 2,
-    "graph_nodes": 4, "graph_edges": 2, "graph_edges_by_relation": "NEXT=1; USES=1", "links_internal": 33, "links_broken": 0,
-    "links_from_index": 10, "links_from_hs": 3, "links_from_kn": 8, "kn_without_outgoing_link": 0, "maps_global": 1,
+    "lines_total": 305, "lines_visible": 134, "lines_collapsed": 12, "details_blocks": 7, "details_max_depth": 1, "hs_units": 3, "kn_concepts": 2,
+    "graph_nodes": 4, "graph_edges": 2, "graph_edges_by_relation": "NEXT=1; USES=1", "links_internal": 34, "links_broken": 0,
+    "links_from_index": 10, "links_from_hs": 3, "links_from_kn": 9, "kn_without_outgoing_link": 0, "maps_global": 1,
     "maps_local_structured": 4, "maps_local_by_source": "BLOCK=2; CONCEPT_L0=2; GRAPH=0", "maps_local_mermaid": 0,
     "global_map_edges_by_kind": "HIERARCHY=3; NEXT=1; RELATION=1"})
 check("Q local map sources = 09 §13.2 source table", [x.split("=")[0] for x in qm["maps_local_by_source"].split("; ")], sorted(P.local_sources))
@@ -1608,8 +1608,213 @@ check("V missing short_meaning -> V-22 only (report); repair writes nothing",
       (vm5.integrity(vtext(pm5)), vm5.repair(), vtext(pm5) == vm5.rebuild()), ([("V-22", "WARNING")], ([("V-22", "WARNING")], "NOTHING"), True))
 check("V template KN parts in 09 §6.1 order (non-artifact rows as headings / lines)",
       [h for h in heads(tpl.split("<!-- SITL:KN:", 1)[1].split("<!-- SITL:KN:", 1)[0])],
-      ["Where am I?", "Semantic Relationships", "Learning Path"] + [p for p in P.parts if p in P.artifact_map])
+      ["Where am I?", "Semantic Relationships", "Recall", "Learning Path"] + [p for p in P.parts if p in P.artifact_map])
 check("V template carries the orientation line and both relationship groups", ("**In one sentence:**" in tpl, [g for g, _, _, _ in P.rel_groups if g in tpl]),
       (True, [g for g, _, _, _ in P.rel_groups]))
+
+# Test W - Recall Capsules (09 §6.6; 07 V-23, V-24; CLS-7 / VIS-06)
+LIGHT_W = "docs/learning/passes/LP-20261111-01/ula/LE-LP-20261111-01-04/LIGHT_ULA.md"
+W0, W1, W2, W3, W4, W5 = (f"KN-0000e00{i}" for i in range(6))
+W6, W7, W8, W9, WA, WB = "KN-0000e006", "KN-0000e007", "KN-0000e008", "KN-0000e009", "KN-0000e00a", "KN-0000e00b"
+WMEAN = {W1: "Süre kafesi üzerinde `forward` ve *backward*.", W2: "Rejim süresini ayrı dağılımla modelleyen model.", W3: "Parametreleri öğrenen döngü.",
+         W4: "Seçim düzeni.", W5: "Pozisyon kuralı.", W9: "Döngü A.", WA: "Döngü B.", WB: "Döngü C."}
+
+
+def w_nodes(meaning=WMEAN):
+    names = {W1: "Lattice Inference", W2: "Model Base", W3: "EM Loop", W4: "Selection", W5: "Positions", W9: "Cycle A", WA: "Cycle B", WB: "Cycle C"}
+    return ([node(W0, "Project Root", "ROOT")] + [node(i, names[i], "CONCEPT", W0, "L1; L2", arts=LIGHT_W if i == W4 else LIGHT_A, meaning=meaning[i])
+                                                  for i in (W1, W2, W3, W4, W5)]
+            + [node(W6, "Owed", "CONCEPT", W0, status="DEBT", meaning="Borç."), node(W7, "Old", "CONCEPT", W0, "L1", status="SUPERSEDED", arts=LIGHT_A, meaning="Eski."),
+               node(W8, "Pointer Only", "CONCEPT", W0, meaning="Yalnız işaret.")]
+            + [node(i, names[i], "CONCEPT", W0, "L1; L2", arts=LIGHT_A, meaning=meaning[i]) for i in (W9, WA, WB)])
+
+
+def wedge(eid, s, rel, t, meaning, ev="VERIFIED (code:src/w.py)"):
+    e = edge(eid, s, rel, t)
+    e.update(meaning=meaning, evidence_status=ev)
+    return e
+
+
+W_EDGES = [wedge("KE-0001", W3, "REQUIRES", W1, "EM kafes çıktılarını ister."), wedge("KE-0002", W3, "DEPENDS_ON", W2, "EM davranışı modele bağlıdır."),
+           wedge("KE-0003", W3, "USES", W1, "EM `eta` sayılarını kullanır."), wedge("KE-0004", W3, "USES", W1, "EM `eta` sayılarını kullanır."),
+           wedge("KE-0005", W3, "COMPARED_WITH", W2, "EM modelle karşılaştırılır."), wedge("KE-0006", W4, "USES", W1, "Seçim kafesi kullanır.", "INFERRED"),
+           wedge("KE-0007", W4, "EVIDENCE_FOR", W1, "Seçim kafesi destekler."), wedge("KE-0008", W4, "USES", W5, "Seçim pozisyonu kullanır."),
+           wedge("KE-0009", W4, "REQUIRES", W6, "Seçim borcu ister."), wedge("KE-0010", W4, "USES", W7, "Seçim eskiyi kullanır."),
+           wedge("KE-0011", W4, "USES", "KN-0000dead", "Seçim olmayanı kullanır."), wedge("KE-0012", W4, "DEPENDS_ON", W8, "Seçim işarete bağlıdır."),
+           wedge("KE-0013", W5, "USES", W1, "Pozisyonlar causal filter kullanır."), wedge("KE-0014", W5, "NEXT", W2, "Pozisyon sonra modele döner."),
+           wedge("KE-0015", W5, "USES", W2, "Pozisyon modeli kullanır.", "GENERAL THEORY"), wedge("KE-0016", W9, "USES", WA, "A, B'yi kullanır."),
+           wedge("KE-0017", WA, "USES", W9, "B, A'yı kullanır."), wedge("KE-0018", WA, "USES", WB, "B, C'yi kullanır."),
+           wedge("KE-0019", WB, "USES", W9, "C, A'yı kullanır.")]
+pw = project("pw", steps=1)
+vw = View(P, pw.root)
+sync(pw, vw)
+light(pw, LIGHT_A, "x", L_LIGHT)
+light(pw, LIGHT_W, "Selection", dict(L_LIGHT, **{"L1 — Simple Explanation": "Seçim Lattice Inference adını anar ama ona dayanmaz."}))
+write_graph(pw, 1, w_nodes(), W_EDGES)
+w_auth = lambda: {f.relative_to(pw.root).as_posix(): sha(f.read_bytes()) for f in sorted((pw.root / "docs/learning").rglob("*"))  # noqa: E731
+                  if f.is_file() and f.name != "STAY_IN_THE_LOOP.md"}
+w_auth0 = w_auth()
+vw.on_map_sync(None)
+wt = vtext(pw)
+wb = blocks(wt)
+wk = lambda i: wb[f"KN:{i}"]  # noqa: E731
+rblock = lambda b: (re.findall(r"^#### Recall\n.*?(?=\n\n#### )", b, re.M | re.S) or [""])[0]  # noqa: E731
+caps = lambda b: re.findall(r"^- \[(.+?)\]\(#(kn-[0-9a-f]{8})\) — (.*)$", rblock(b), re.M)  # noqa: E731
+used = lambda b: re.findall(r"^  - \*\*Used here:\*\* (.*) \(([A-Z_]+)\)$", rblock(b), re.M)  # noqa: E731
+wS = vw.sources()
+w_order = [n["node_id"] for n in vw.kn_nodes(wS)]
+check("W rules from 09 §6.6: REQUIRES / USES / DEPENDS_ON, VERIFIED, source side, earlier targets, one capsule per target, edge_id order",
+      (P.recall_rule["relations"], P.recall_rule["evidence"], P.recall_rule["side"], P.recall_rule["earlier"], P.recall_rule["one_per_target"],
+       P.recall_rule["edge_id_order"]), (["REQUIRES", "USES", "DEPENDS_ON"], "VERIFIED", "source", True, True, True))
+check("W direct prerequisite + repeated concept: one capsule per target, edges merged in edge_id order, duplicate triple once", rblock(wk(W3)),
+      "#### Recall\n\n- [Lattice Inference](#kn-0000e001) — Süre kafesi üzerinde `forward` ve *backward*.\n"
+      "  - **Used here:** EM kafes çıktılarını ister. (REQUIRES)\n  - **Used here:** EM `eta` sayılarını kullanır. (USES)\n"
+      "- [Model Base](#kn-0000e002) — Rejim süresini ayrı dağılımla modelleyen model.\n  - **Used here:** EM davranışı modele bağlıdır. (DEPENDS_ON)")
+check("W reused output: USES edge -> capsule with the stored meaning", (caps(wk(W5)), used(wk(W5))),
+      ([("Lattice Inference", "kn-0000e001", WMEAN[W1])], [("Pozisyonlar causal filter kullanır.", "USES")]))
+check("W concept mentioned but recall unnecessary: name in ULA text, EVIDENCE_FOR / INFERRED edge only -> no Recall part",
+      ("Lattice Inference adını anar" in wk(W4), "#### Recall" in wk(W4)), (True, False))
+check("W missing target concepts (forward, DEBT, SUPERSEDED, missing, section-less) -> no capsule, no broken link",
+      ("#### Recall" in wk(W4), vw.broken_link_keys(wt, View.spans(wt))), (False, []))
+check("W circular graph: only the later section of each pair recalls; capsule targets always earlier",
+      ([(i, [c[1] for c in caps(wk(i))]) for i in (W9, WA, WB)],
+       [w_order.index(i) > w_order.index("KN-" + c[1][3:]) for i in w_order for c in caps(wk(i))]),
+      ([(W9, []), (WA, ["kn-0000e009"]), (WB, ["kn-0000e009"])], [True] * 5))
+pairs = {(i.lower(), c[1]) for i in w_order for c in caps(wk(i))}
+check("W no circular recall chain: no capsule pair points both ways, no self-recall", ([p for p in pairs if (p[1], p[0]) in pairs], [p for p in pairs if p[0] == p[1]]), ([], []))
+check("W forward edge never recalls (Cycle A USES Cycle B, Selection USES Positions)", ("#### Recall" in wk(W9), "Positions" in rblock(wk(W4))), (False, False))
+check("W NEXT never triggers recall; no NEXT / COMPARED_WITH / EVIDENCE_FOR used line anywhere",
+      sorted({r for i in w_order for _, r in used(wk(i))}), ["DEPENDS_ON", "REQUIRES", "USES"])
+check("W INFERRED and GENERAL THEORY edges do not trigger recall; their meanings are written nowhere",
+      ([c for c in caps(wk(W5)) if c[0] == "Model Base"], wt.count("Seçim kafesi kullanır."), wt.count("Pozisyon modeli kullanır.")), ([], 0, 0))
+check("W only KN sections with qualifying earlier targets carry Recall", sorted(k for k, b in wb.items() if "#### Recall" in b),
+      sorted(f"KN:{i}" for i in (W3, W5, WA, WB)))
+check("W capsule text = target short_meaning verbatim (markdown kept); written once per capsule plus the orientation",
+      ([c[2] == WMEAN["KN-" + c[1][3:]] for i in w_order for c in caps(wk(i))], wt.count(WMEAN[W1]), wt.count(WMEAN[W9])), ([True] * 5, 3, 3))
+check("W used text = edge meaning verbatim; each recalled meaning written once (not in relationships or MAP)",
+      [wt.count(m) for m in ("EM kafes çıktılarını ister.", "EM `eta` sayılarını kullanır.", "EM davranışı modele bağlıdır.", "Pozisyonlar causal filter kullanır.")],
+      [1, 1, 1, 1])
+check("W backlinks: every capsule links to its target's KN anchor, anchors once", ([c[1] for i in w_order for c in caps(wk(i)) if f'<a id="{c[1]}"></a>' not in wt],
+      [a for a in (i.lower() for i in w_order) if vm.anchors_of(wt).count(a) != 1]), ([], []))
+in_order = lambda b, *ms: -1 not in [b.find(m) for m in ms] and [b.find(m) for m in ms] == sorted(b.find(m) for m in ms)  # noqa: E731
+check("W placement: Semantic Relationships -> Recall -> Learning Path -> L0, visible (no <details>)",
+      [in_order(wk(i), "#### Semantic Relationships", "#### Recall", "#### Learning Path", "#### L0 — Map") and "<details>" not in rblock(wk(i))
+       for i in (W3, W5, WA, WB)], [True] * 4)
+check("W Recall outside ULA content: learning path and ULA lines unchanged", (path_line(wk(W3)), miss(wk(W3), src_lines(L_LIGHT, L_LIGHT))), ("L0 → L1 → L2 → Retrieval", []))
+check("W no Human Sync capsule; Recall only in KN sections", [k for k, b in wb.items() if "#### Recall" in b and not k.startswith("KN:")], [])
+check("W authoritative files byte-identical; only STAY_IN_THE_LOOP.md human-facing", (w_auth(), human_files(pw.root)), (w_auth0, ["STAY_IN_THE_LOOP.md"]))
+check("W view clean; incremental == rebuild; deterministic", (vw.integrity(wt), wt == vw.rebuild(), vw.rebuild() == vw.rebuild()), ([], True, True))
+reorder = dict(wS, nodes=[n for n in wS["nodes"] if n["node_id"] != W1][:4] + [next(n for n in wS["nodes"] if n["node_id"] == W1)] +
+               [n for n in wS["nodes"] if n["node_id"] != W1][4:])
+check("W section order decides 'earlier': Lattice moved after EM Loop -> EM Loop keeps only Model Base",
+      re.findall(r"^- \[(.+?)\]", vw.recall(reorder, next(n for n in reorder["nodes"] if n["node_id"] == W3)) or "", re.M), ["Model Base"])
+
+
+def w_step(version, nodes, edges):
+    pre = (pw.root / GRAPH_F).read_text(encoding="utf-8")
+    write_graph(pw, version, nodes, edges)
+    vw.on_map_sync(pre)
+    after = blocks(vtext(pw))
+    return sorted(k for k in after if after[k] != wb.get(k)), vtext(pw) == vw.rebuild()
+
+
+check("W incremental: target short_meaning change re-renders the target and every section recalling it; == rebuild",
+      w_step(2, w_nodes(dict(WMEAN, **{W1: "Yeni kafes anlamı."})), W_EDGES), ([f"KN:{W1}", f"KN:{W3}", f"KN:{W5}"], True))
+w_step(3, w_nodes(), W_EDGES)
+check("W incremental: edge meaning change re-renders only the recalling section; == rebuild",
+      w_step(4, w_nodes(), [wedge("KE-0013", W5, "USES", W1, "Pozisyonlar filter olasılığını kullanır.") if e["edge_id"] == "KE-0013" else e for e in W_EDGES]),
+      ([f"KN:{W5}"], True))
+w_step(5, w_nodes(), W_EDGES)
+check("W incremental: evidence VERIFIED -> INFERRED removes the capsule; only that section; == rebuild",
+      (w_step(6, w_nodes(), [wedge("KE-0013", W5, "USES", W1, "Pozisyonlar causal filter kullanır.", "INFERRED") if e["edge_id"] == "KE-0013" else e
+                             for e in W_EDGES]), "#### Recall" in blocks(vtext(pw))[f"KN:{W5}"]), (([f"KN:{W5}"], True), False))
+w_step(7, w_nodes(), W_EDGES)
+base_w = vtext(pw)
+check("W graph restored: view == first render", base_w, wt)
+
+
+def w_crafted(fn):
+    vw.f.write_text(fn(base_w), encoding="utf-8")
+    try:
+        return [c for c, _ in vw.integrity(vtext(pw))]
+    finally:
+        vw.f.write_text(base_w, encoding="utf-8")
+
+
+CAP1 = f"- [Lattice Inference](#kn-0000e001) — {WMEAN[W1]}"
+check("W unsupported recall fact (paraphrased reminder) -> V-23", w_crafted(lambda t: t.replace(CAP1, "- [Lattice Inference](#kn-0000e001) — Kafes teorisi.", 1)), ["V-23"])
+check("W unsupported recall fact (changed used line) -> V-23", w_crafted(lambda t: t.replace("EM kafes çıktılarını ister.", "EM kafes çıktılarını ve teorisini ister.")),
+      ["V-23"])
+check("W incorrect target -> V-23", w_crafted(lambda t: t.replace(CAP1, CAP1.replace("#kn-0000e001", "#kn-0000e002"), 1)), ["V-23"])
+check("W duplicated capsule -> V-23", w_crafted(lambda t: t.replace(f"{CAP1}\n  - **Used here:** Pozisyonlar causal filter kullanır. (USES)",
+      f"{CAP1}\n  - **Used here:** Pozisyonlar causal filter kullanır. (USES)\n{CAP1}\n  - **Used here:** Pozisyonlar causal filter kullanır. (USES)")), ["V-23"])
+check("W missing backlink -> V-23", w_crafted(lambda t: t.replace(CAP1, f"- Lattice Inference — {WMEAN[W1]}", 1)), ["V-23"])
+check("W capsule removed -> V-23", w_crafted(lambda t: t.replace(rblock(wk(WA)) + "\n\n", "")), ["V-23"])
+check("W invented capsule in a section without recall -> V-23", w_crafted(lambda t: t.replace(wk(W9), wk(W9).replace("#### Learning Path",
+      "#### Recall\n\n- [Cycle B](#kn-0000e00a) — Döngü B.\n  - **Used here:** A, B'yi kullanır. (USES)\n\n#### Learning Path"))), ["V-23"])
+check("W Recall moved after Learning Path -> V-23", w_crafted(lambda t: t.replace(wk(WA), wk(WA).replace(rblock(wk(WA)) + "\n\n", "").replace(
+      "#### L0 — Map", rblock(wk(WA)) + "\n\n#### L0 — Map"))), ["V-23"])
+check("W NEXT used line added -> V-23", w_crafted(lambda t: t.replace("  - **Used here:** Pozisyonlar causal filter kullanır. (USES)",
+      "  - **Used here:** Pozisyonlar causal filter kullanır. (USES)\n  - **Used here:** Pozisyon sonra modele döner. (NEXT)")), ["V-23"])
+legacy_w = re.sub(r"#### Recall\n.*?\n\n(?=#### Learning Path)", "", base_w, flags=re.S)
+vw.f.write_text(legacy_w, encoding="utf-8")
+lw_found = [c for c, _ in vw.integrity(vtext(pw))]
+lw_res = vw.repair()[1]
+lw_after = blocks(vtext(pw))
+check("W VIS-05 view (no Recall) -> V-23 only; repair writes exactly the capsule sections; == rebuild",
+      (lw_found, lw_res, sorted(k for k in lw_after if lw_after[k] != blocks(legacy_w).get(k)), vtext(pw) == base_w),
+      (["V-23"], "REPAIRED", sorted(f"KN:{i}" for i in (W3, W5, WA, WB)), True))
+# edge_id order (09 §6.6) does not depend on graph row order (05 §4 / 07 M-checks do not require sorted rows)
+W_SHUF = [W_EDGES[i] for i in (18, 3, 12, 1, 9, 16, 4, 0, 14, 7, 2, 17, 10, 5, 15, 8, 13, 6, 11)]
+pws = project("pw_shuffled", steps=1)
+vws = View(P, pws.root)
+light(pws, LIGHT_A, "x", L_LIGHT)
+light(pws, LIGHT_W, "Selection", dict(L_LIGHT, **{"L1 — Simple Explanation": "Seçim Lattice Inference adını anar ama ona dayanmaz."}))
+write_graph(pws, 1, w_nodes(), W_SHUF)
+vws.update([])
+ws = blocks(vtext(pws))
+check("W shuffled fixture: same edges as the ordered fixture, graph rows not in edge_id order",
+      (sorted(e["edge_id"] for e in W_SHUF) == [e["edge_id"] for e in W_EDGES], [e["edge_id"] for e in vws.sources()["edges"]][:4]),
+      (True, ["KE-0019", "KE-0004", "KE-0013", "KE-0002"]))
+check("W shuffled graph rows: every Recall part identical to the ordered fixture (Used here lines in edge_id order); view clean",
+      ([i for i in w_order if rblock(ws[f"KN:{i}"]) != rblock(wk(i))], used(ws[f"KN:{W3}"]), vws.integrity(vtext(pws)), vtext(pws) == vws.rebuild()),
+      ([], [("EM kafes çıktılarını ister.", "REQUIRES"), ("EM `eta` sayılarını kullanır.", "USES"), ("EM davranışı modele bağlıdır.", "DEPENDS_ON")], [], True))
+O_EDGES = [wedge("KE-0001", W3, "DEPENDS_ON", W2, "Önce model."), wedge("KE-0002", W3, "USES", W1, "Sonra kafes kullanımı."),
+           wedge("KE-0003", W3, "REQUIRES", W1, "Sonra kafes ön koşulu.")]
+O_BLOCK = ("#### Recall\n\n- [Model Base](#kn-0000e002) — Rejim süresini ayrı dağılımla modelleyen model.\n  - **Used here:** Önce model. (DEPENDS_ON)\n"
+           "- [Lattice Inference](#kn-0000e001) — Süre kafesi üzerinde `forward` ve *backward*.\n"
+           "  - **Used here:** Sonra kafes kullanımı. (USES)\n  - **Used here:** Sonra kafes ön koşulu. (REQUIRES)")
+o_pre = (pws.root / GRAPH_F).read_text(encoding="utf-8")
+write_graph(pws, 2, w_nodes(), [O_EDGES[2], O_EDGES[0], O_EDGES[1]])
+vws.on_map_sync(o_pre)
+o_shuf = vtext(pws)
+check("W capsules in first-edge edge_id order, not section order or row order; Used here lines in edge_id order (rows KE-0003, KE-0001, KE-0002)",
+      (w_order.index(W1) < w_order.index(W2), rblock(blocks(o_shuf)[f"KN:{W3}"]), vws.integrity(o_shuf), o_shuf == vws.rebuild()), (True, O_BLOCK, [], True))
+o_pre = (pws.root / GRAPH_F).read_text(encoding="utf-8")
+write_graph(pws, 3, w_nodes(), O_EDGES)
+vws.on_map_sync(o_pre)
+check("W same edges in sorted rows: identical Recall part", rblock(blocks(vtext(pws))[f"KN:{W3}"]), O_BLOCK)
+# missing text (D-9): no capsule, no substitute, V-24 (+ V-22 for the target), report only
+pwm = project("pw_missing", steps=1)
+vwm = View(P, pwm.root)
+light(pwm, LIGHT_A, "x", L_LIGHT)
+m_nodes = lambda m1: [node(W0, "Project Root", "ROOT"), node(W1, "Blank Target", "CONCEPT", W0, "L1", arts=LIGHT_A, meaning=m1),  # noqa: E731
+                      node(W2, "Model Base", "CONCEPT", W0, "L1", arts=LIGHT_A, meaning="Var."), node(W3, "User", "CONCEPT", W0, "L1", arts=LIGHT_A, meaning="Kullanıcı.")]
+M_EDGES = [wedge("KE-0001", W3, "USES", W1, "Kullanır."), wedge("KE-0002", W3, "REQUIRES", W2, "İster."), wedge("KE-0003", W3, "USES", W2, "-")]
+write_graph(pwm, 1, m_nodes("Hedef."), M_EDGES)
+vwm.update([])
+mt = blocks(vtext(pwm))
+check("W empty edge meaning ('-'): that target's capsule omitted, the other capsule kept, no substitute text; V-24 only; repair writes nothing",
+      (caps(mt[f"KN:{W3}"]), "İster." in vtext(pwm), vwm.integrity(vtext(pwm)), vwm.repair()[1]),
+      ([("Blank Target", "kn-0000e001", "Hedef.")], False, [("V-24", "WARNING")], "NOTHING"))
+m_pre = (pwm.root / GRAPH_F).read_text(encoding="utf-8")
+write_graph(pwm, 2, m_nodes("-"), M_EDGES)
+vwm.on_map_sync(m_pre)
+check("W empty target short_meaning: no capsule at all, no Recall part; V-22 + V-24 reported; repair writes nothing; == rebuild",
+      ("#### Recall" in blocks(vtext(pwm))[f"KN:{W3}"], "Used here" in vtext(pwm), vwm.integrity(vtext(pwm)), vwm.repair()[1], vtext(pwm) == vwm.rebuild()),
+      (False, False, [("V-22", "WARNING"), ("V-24", "WARNING")], "NOTHING", True))
+w_tpl = tpl.split("<!-- SITL:KN:", 1)[1]
+check("W template: Recall between Semantic Relationships and Learning Path, with the Used here line",
+      (in_order(w_tpl, "#### Semantic Relationships", "#### Recall", "#### Learning Path"), "**Used here:**" in w_tpl), (True, True))
 
 report(RESULTS)
