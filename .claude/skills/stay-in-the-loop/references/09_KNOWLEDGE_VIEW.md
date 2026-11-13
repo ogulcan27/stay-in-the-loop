@@ -53,7 +53,7 @@ STAY_IN_THE_LOOP.md (derived)  → human-facing projection
 | local_map_min_children | 3 |
 | map_label_max_chars | 48 |
 | global_map_max_nodes | 30 |
-| collapsed | L3; L4; Boundary; Reference |
+| collapsed | L3; L4; Reference |
 | recall_relations | REQUIRES; USES; DEPENDS_ON |
 | recall_evidence | VERIFIED |
 | key_terms_max | 5 |
@@ -255,6 +255,7 @@ HUMAN katmanında proje sembolü ilk geçtiği yerde tanımlıdır. Önce düz a
 | Dependencies | Dependencies | SNAPSHOT |
 
 - Part'lar `####` heading'dir. SNAPSHOT part'ları tek `<details>` bloğundadır: `<summary><strong>Technical Project Snapshot</strong></summary>`.
+- `Five things to remember` gövdesi `IMPORTANT` callout'udur (§14).
 - `Five things to remember` Invariants ve Active Decisions maddelerinden ilk `remember_max` maddeyi bu sırayla alır.
 - Bu maddeler SNAPSHOT'ta tekrar yazılmaz. SNAPSHOT yalnız kalan maddeleri gösterir.
 - Boş part gösterilmez. Bütün part'lar boşsa gövde `Yok.` olur.
@@ -331,7 +332,8 @@ KN section kavramın **Concept Home View**'udur: okuyucuyu ders derinliğinden �
 
 - Sıra tablo sırasıdır. In one sentence ve Local Map Where am I? part'ının içinde durur (§6.3, §7.2).
 - Yalnız ULA pass'in gerçekten ürettiği level gösterilir. Light ULA L4 üretmez. Boş level uydurulmaz.
-- `collapsed` part'ları `<details>` içinde durur. L0, L1, L2, Example ve Retrieval açık kalır.
+- `collapsed` part'ları `<details>` içinde durur. L0, L1, L2, Boundary, Example ve Retrieval açık kalır.
+- Boundary gövdesi `WARNING` callout'udur (§14).
 - Self-Check, Content Integrity Check, Metadata, Orientation, Oral Version ve Transition gösterilmez. Bunlar audit içindir.
 
 ### 6.2 Artifact mapping
@@ -445,6 +447,7 @@ Kavram daha önce okunan bir kavramı kullanıyorsa okuyucu o bölüme dönmeden
 - `<target>` hedef `canonical_name`, link hedef KN section anchor'ıdır (§3.2). Capsule başka capsule'a link vermez. Hedef hep önce durduğu için recall zinciri döngü kuramaz.
 - Hedef `short_meaning` veya bir edge `meaning` boş veya `-` ise capsule yazılmaz. V-24 raporlar. Düzeltme graph'tadır. Metin uydurulmaz.
 - Metin yalnız stored alanlardır. ULA metni, özet veya açıklama eklenmez. `Used here` edge `meaning`'idir; tam ders açıklaması iddiası taşımaz.
+- Part gövdesi tek `NOTE` callout'udur (§14). Capsule satırları callout içinde, yukarıdaki biçimle durur.
 - Capsule yoksa part yazılmaz. Capsule açık durur. Sayı sınırı yoktur.
 
 ---
@@ -722,9 +725,34 @@ Yeni bir presentation değişikliği bu sözleşmeye göre değerlendirilir. Ger
 
 ---
 
+## 14. Visual grammar
+
+View'ın ürettiği her bilgi türü tek bir Markdown primitive'i ile gösterilir. Biçim yalnız sunumdur. Metin, link, sıra ve bilgi anlamı değişmez (§13.5).
+
+| primitive | Markdown | semantic purpose | view use | fallback |
+|---|---|---|---|---|
+| `DIAGRAM` | `mermaid` `flowchart LR` | Kavramlar arası hiyerarşi ve relation ağı | `Knowledge Map` (§7.1); `Local Map` (§7.2) | Mermaid kaynağı okunur kalır: label `canonical_name (KN-xxxxxxxx)`. Knowledge Map aynı node ve edge'leri `**Concepts:**` ve `**Relationships:**` satırlarında da verir. |
+| `PATH` | `A → B → C` satırı | Dallanmayan sıra | breadcrumb ve `Reading order` (§6.3); `Learning Path` (§6.5); Journey adımı (§5.4) | Aynı satır |
+| `NOTE` | `> [!NOTE]` callout | Daha önce okunan kavramı hatırlatır | `Recall` | Blockquote. `[!NOTE]` düz metin görünür. |
+| `IMPORTANT` | `> [!IMPORTANT]` callout | Korunması gereken invariant ve karar | `Five things to remember` | Blockquote. `[!IMPORTANT]` düz metin görünür. |
+| `WARNING` | `> [!WARNING]` callout | Sık hata ve kavram sınırı (confusion check) | `Boundary` | Blockquote. `[!WARNING]` düz metin görünür. |
+| `DETAILS` | `<details>` + `<summary><strong>…</strong></summary>` | Derin teori, formalism, referans ve evidence; varsayılan kapalı | `collapsed` part'ları (§1); `Technical Trace` (§5.1); `Technical Project Snapshot` (§5.3) | HTML desteklemeyen renderer gövdeyi açık gösterir. |
+| `TABLE` | Markdown table | Aynı özelliklerle karşılaştırma | Yok. View karşılaştırma üretmez. | - |
+
+- Aynı bilgi türü her section'da aynı primitive'i alır. Tablodaki kullanım dışında callout, `<details>` veya Mermaid üretilmez.
+- Callout: part heading'i (`####`) callout'un dışında, üstünde durur. İlk satır `> [!<KIND>]`. Gövdenin her satırı `> ` ile başlar, boş satır `>` olur. Gövde metni değişmez.
+- `DIAGRAM` yalnız tablodaki map'ler içindir. Dallanmayan sıra (`PATH`) Mermaid almaz. Bilgi taşımayan dekoratif diyagram üretilmez.
+- Kopyalanan içerik (ULA artifact, record, context) kaynak biçimini aynen korur (§6.2). View kopyalanan pipeline, karar dalı veya tabloyu yeniden biçimlendirmez. Grammar yalnız gövdenin hangi primitive içinde durduğunu belirler.
+- Nesting sınırı: View primitive'leri iç içe koymaz. `<details>` iç içe olmaz (`details_max_depth` 1). Callout `<details>` veya başka callout içinde durmaz. `DIAGRAM` callout veya `<details>` içinde durmaz.
+- Fallback: Callout, `<details>` veya Mermaid desteklemeyen renderer'da bilgi kaybolmaz. Primitive işaretleri (`> `, `> [!<KIND>]`, `<details>`, `<summary>`) çıkarılınca kalan metin part gövdesinin aynısıdır.
+- Grammar'dan farklı biçimde duran callout veya `collapsed` part'ı `07` V-25 ile raporlanır. Repair section'ı yeniden üretir.
+
+---
+
 ## Authoritative Source
 
 - `08_HUMAN_SYNC_STATE.md` §1, §3, §4, §11.1, §12 (record, status, write sırası).
 - `05_MINDMAP_PROTOCOL.md` §1, §3, §4.1, §5, §12, §13 (graph, relation vocabulary, hierarchy, zoom).
 - `04_ULA_PROTOCOL.md` §9 (artifact yapısı).
 - `07_INTEGRITY_CHECKS.md` §V, §L.
+- GitHub Markdown callout (alert) sözdizimi: `> [!NOTE]`, `> [!IMPORTANT]`, `> [!WARNING]`.

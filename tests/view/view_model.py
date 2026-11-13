@@ -123,6 +123,8 @@ class Protocol:
         self.plan = {TICK.findall(r[0])[0]: (TICK.findall(r[1]), TICK.findall(r[2]))
                      for r in sm.tables(sm.section(p, "## 9. Section-level retrieval"))[0]}
         self.reader_questions = [r[1] for r in sm.tables(sm.section(p, "### 13.1 Reader questions"))[0]]
+        self.grammar = {TICK.findall(r[0])[0]: r for r in sm.tables(sm.section(p, "## 14. Visual grammar"))[0]}
+        self.callout = {TICK.findall(r[3])[0]: re.search(r"\[!([A-Z]+)\]", r[1]).group(1) for r in self.grammar.values() if r[1].startswith("`> [!")}
         metrics = sm.tables(sm.section(p, "### 13.2 Metrics"))
         self.metrics = [r[0].strip("`") for r in metrics[0]]
         self.local_sources = [r[0].strip("`") for r in metrics[1]]
@@ -231,6 +233,11 @@ def parts_of(text, level):
         if cur is not None:
             out[cur].append(line)
     return {k: "\n".join(v).strip() for k, v in out.items()}
+
+
+def callout(kind, body):
+    """09 §14: a GitHub callout; every body line quoted, blank lines as '>'; text unchanged."""
+    return "\n".join([f"> [!{kind}]"] + [f"> {l}" if l else ">" for l in body.splitlines()])
 
 
 def step_id(work_unit_id):
@@ -488,12 +495,13 @@ class View:
         keep = self.recall_capsules(S, node)[0]
         if not keep:
             return None
-        out = ["#### Recall", ""]
+        out = []
         for t, es in keep:
             out.append(R["capsule"][1].replace("<target>", t["canonical_name"]).replace("kn-xxxxxxxx", t["node_id"].lower())
                        .replace("<short_meaning>", t[R["capsule"][0]]))
             out += [R["used"][1].replace("<meaning>", e[R["used"][0]]).replace("<RELATION>", e["relation_type"]) for e in es]
-        return "\n".join(out)
+        body = "\n".join(out)
+        return "#### Recall\n\n" + (callout(self.P.callout["Recall"], body) if "Recall" in self.P.callout else body)
 
     def short_part(self, part):
         level = re.match(r"(L\d) —", part)
@@ -531,7 +539,7 @@ class View:
             if self.short_part(part) in self.P.collapsed:
                 out += ["", "<details>", f"<summary><strong>{part}</strong></summary>", "", shift(body, 1), "", "</details>"]
             else:
-                out += ["", f"#### {part}", "", body]
+                out += ["", f"#### {part}", "", callout(self.P.callout[part], body) if part in self.P.callout else body]
         return "\n".join(out + [f"<!-- SITL:KN:{nid}:END -->"])
 
     def map_nodes(self, S, depth):
@@ -693,7 +701,7 @@ class View:
             else:
                 body = text.get(src, "")
             if body:
-                layers[layer].append(f"#### {view}\n\n{body}")
+                layers[layer].append(f"#### {view}\n\n{callout(self.P.callout[view], body) if view in self.P.callout else body}")
                 if layer == "HUMAN":
                     layers["HUMAN_VIEWS"].append(view)
         return layers
@@ -1096,6 +1104,8 @@ class View:
                 add("V-23")
             if [n for n in self.kn_nodes(S) if f"KN:{n['node_id']}" in spans and self.recall_capsules(S, n)[1]]:
                 add("V-24")
+            if self.grammar_stale(text, spans):
+                add("V-25")
         else:
             found = [(c, s) for c, s in found if s == "FAIL"]
         return sorted(set(found))
@@ -1149,6 +1159,26 @@ class View:
                 out.append(key)
         return out
 
+    def grammar_stale(self, text, spans):
+        """07 V-25: KN / MODEL sections with a part outside its 09 §14 primitive (callout kind, collapsed part, callout inside <details>)."""
+        out = []
+        for key, span in spans.items():
+            if key.split(":")[0] not in ("KN", "MODEL"):
+                continue
+            body, bad = self.lines_of(text, span), False
+            for use, kind in self.P.callout.items():
+                bad |= f"<summary><strong>{use}</strong></summary>" in body
+                bad |= any(m != f"> [!{kind}]" for m in re.findall(rf"^#### {re.escape(use)}\n\n(.*)$", body, re.M))
+            if key.startswith("KN:"):
+                bad |= any(f"\n#### {p}\n" in body for p in self.P.parts if self.short_part(p) in self.P.collapsed)
+            depth = 0
+            for line in body.splitlines():
+                depth += (line == "<details>") - (line == "</details>")
+                bad |= depth > 0 and line.startswith("> [!")
+            if bad:
+                out.append(key)
+        return out
+
     def broken_link_keys(self, text, spans):
         """07 V-01: sections with an internal link to an anchor the file does not produce (GitHub -1, -2 suffixes included)."""
         made, seen = set(), {}
@@ -1183,7 +1213,8 @@ class View:
                     n = next(x for x in S["nodes"] if x["node_id"] == k[3:])
                     if spans[k][2].get("depth") != ";".join(depth_list(n["available_depth"])) or f"### {n['node_id']} — {n['canonical_name']}\n" not in cur + "\n":
                         keys.append(k)
-        keys += self.nav_stale(text, spans, S) + self.home_stale(text, spans, S) + self.recall_stale(text, spans, S) + self.broken_link_keys(text, spans) + ["JOURNEY"] * self.journey_stale(text, spans, S)
+        keys += self.nav_stale(text, spans, S) + self.home_stale(text, spans, S) + self.recall_stale(text, spans, S) + self.grammar_stale(text, spans)
+        keys += self.broken_link_keys(text, spans) + ["JOURNEY"] * self.journey_stale(text, spans, S)
         self.update(keys + ["MAP", "INDEX"], rd)
         return found, "REPAIRED"
 

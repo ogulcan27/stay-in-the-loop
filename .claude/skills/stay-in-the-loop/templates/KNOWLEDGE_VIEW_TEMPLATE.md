@@ -37,6 +37,9 @@
 
 #### Five things to remember
 
+> [!IMPORTANT]
+> - <invariant veya karar>
+
 #### What is still unresolved?
 
 <details>
@@ -141,12 +144,13 @@ Learning depth: <L1 · L2> · Source: `<event-id>` (`<artifact path>`)
 
 #### Recall
 
-- [<önceki hedef>](#kn-xxxxxxxx) — <hedef short_meaning, aynen; capsule yoksa part yok>
-  - **Used here:** <edge meaning, aynen> (<REQUIRES | USES | DEPENDS_ON>)
+> [!NOTE]
+> - [<önceki hedef>](#kn-xxxxxxxx) — <hedef short_meaning, aynen; capsule yoksa part yok>
+>   - **Used here:** <edge meaning, aynen> (<REQUIRES | USES | DEPENDS_ON>)
 
 #### Learning Path
 
-L0 → L1 → L2 → L3 (collapsed) → L4 (collapsed) → Boundary (collapsed) → Example → Retrieval → Reference (collapsed)
+L0 → L1 → L2 → L3 (collapsed) → L4 (collapsed) → Boundary → Example → Retrieval → Reference (collapsed)
 
 #### L0 — Map
 
@@ -164,10 +168,10 @@ L0 → L1 → L2 → L3 (collapsed) → L4 (collapsed) → Boundary (collapsed) 
 
 </details>
 
-<details>
-<summary><strong>Boundary</strong></summary>
+#### Boundary
 
-</details>
+> [!WARNING]
+> <artifact boundary, aynen>
 
 #### Example
 

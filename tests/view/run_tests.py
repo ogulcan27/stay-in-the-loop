@@ -74,6 +74,12 @@ def vtext(repo):
     return (repo.root / VIEW_F).read_text(encoding="utf-8")
 
 
+def plain(text):
+    """09 §14 fallback: the text with callout markers removed ('> [!KIND]' line dropped, '> ' / '>' prefix removed)."""
+    lines = [l for l in text.splitlines() if not re.fullmatch(r"> \[![A-Z]+\]", l)]
+    return "\n".join(l[2:] if l.startswith("> ") else "" if l == ">" else l for l in lines)
+
+
 def hs(n):
     return f"HS:{sm.record_id(wu(n))}"
 
@@ -431,7 +437,7 @@ check("J lesson text once per concept section", all(b.count("Skor yanlış iyi g
 check("J semantic relationships link to sections", "- **Hidden-State Models** — USES → [Duration Model](#kn-00000040)" in jb["KN:KN-00000020"], True)
 
 # Test K - 07 §V integrity, candidate safety, write failure (spec 33, 34)
-check("K 24 V checks", sorted(P.checks), [f"V-{i:02d}" for i in range(1, 25)])
+check("K 25 V checks", sorted(P.checks), [f"V-{i:02d}" for i in range(1, 26)])
 check("K structural / misleading checks FAIL", sorted(c for c, s in P.checks.items() if s == "FAIL"),
       ["V-02", "V-03", "V-04", "V-05", "V-09", "V-10", "V-12", "V-13"])
 base = vtext(pd)
@@ -460,8 +466,8 @@ check("K V-06 STALE shown as Current", "V-06" in crafted(lambda t: t.replace(f"{
                                                                               blocks(t)[hs(1)].splitlines()[4].replace("Current", "Needs refresh"))), True)
 check("K V-09 unclosed fence", "V-09" in crafted(lambda t: t.replace("#### L1 — Simple Mental Model\n", "#### L1 — Simple Mental Model\n```text\n")), True)
 check("K V-10 level-2 heading inside a section", "V-10" in crafted(lambda t: t.replace("#### L1 — Simple Mental Model", "## L1 — Simple Mental Model")), True)
-check("K V-11 L4 heading on a Light (L1;L2) concept", [c for c, _ in ve.integrity(vtext(pe).replace("#### L2 — Mechanism", "#### L4 — Formalism"))],
-      ["V-11"])
+check("K V-11 L4 heading on a Light (L1;L2) concept (an open L4 is also outside its DETAILS primitive: V-25)",
+      [c for c, _ in ve.integrity(vtext(pe).replace("#### L2 — Mechanism", "#### L4 — Formalism"))], ["V-11", "V-25"])
 check("K V-14 map node not in graph", "V-14" in crafted(lambda t: t.replace("KN_0000000b[", "KN_0000beef[")), True)
 check("K clean view -> no finding", vd.integrity(base), [])
 # misleading presentation is repaired section by section
@@ -670,9 +676,9 @@ check("P Project in 60 Seconds: heading and human-first order", (model.splitline
       ("## Project in 60 Seconds", ["What are we building?", "Where are we now?", "How does it work at the highest level?", "Five things to remember",
                                     "What is still unresolved?"]))
 five = model.split("#### Five things to remember\n\n")[1].split("\n\n")[0].splitlines()
-check("P five things = invariants first, then active decisions", five, ["- Eksik hafta sıfır değil, boştur.",
-      "- Model yalnız tahmin haftasından önce yayımlanmış veriyi görür.", "- Her özellik aynı activity tanımını kullanır.",
-      "- Ana ölçü benzersiz dinleyici sayısı, toplam dinleme yardımcı.", "- Hedef 12 haftalık dinleyici artışı."])
+check("P five things = invariants first, then active decisions, in one IMPORTANT callout (09 §14)", five, ["> [!IMPORTANT]", "> - Eksik hafta sıfır değil, boştur.",
+      "> - Model yalnız tahmin haftasından önce yayımlanmış veriyi görür.", "> - Her özellik aynı activity tanımını kullanır.",
+      "> - Ana ölçü benzersiz dinleyici sayısı, toplam dinleme yardımcı.", "> - Hedef 12 haftalık dinleyici artışı."])
 check("P technical snapshot collapsed, keeps the rest", (model.count("<summary><strong>Technical Project Snapshot</strong></summary>"),
       parts_seq(model.split("<details>")[1])), (1, ["Architecture", "Components", "Active Decisions", "Dependencies"]))
 ctx_lines = [l for l in MF.CONTEXT.splitlines() if l.strip() and not l.startswith(("## ", "```"))]
@@ -689,7 +695,7 @@ check("O status lines", P.status_line, {"SYNCED": "Current", "STALE": "Needs ref
 check("O HS template parts = 09 §5.1 mapping", P.hs_sections, [v for v, _, _ in P.hs_map])
 check("O MODEL template = 09 §3 heading + §5.3 parts", (P.model_template_heading, P.model_sections), (P.model_heading, [v for v, _, _ in P.model_map]))
 check("O Light has no L4 source", P.artifact_map["L4 — Formalism"]["LIGHT"], None)
-check("O collapsed parts", P.collapsed, ["L3", "L4", "Boundary", "Reference"])
+check("O collapsed parts (Boundary is a WARNING callout, 09 §14)", P.collapsed, ["L3", "L4", "Reference"])
 s07 = (SKILL / "references" / "07_INTEGRITY_CHECKS.md").read_text(encoding="utf-8")
 check("O 07 §L.1 KNOWLEDGE_VIEW is DERIVED", bool(re.search(r"^\| `KNOWLEDGE_VIEW` \| DERIVED \|", s07, re.M)), True)
 check("O 07 §L.3 runs §V", "+ §V + §L checks" in s07, True)
@@ -712,7 +718,7 @@ q0, qt, qg = q_files(), vtext(pq), (pq.root / GRAPH_F).read_text(encoding="utf-8
 qm = RB.metrics(qt, qg, SKILL)
 check("Q baseline tool reports exactly the 09 §13.2 metrics", list(qm), P.metrics)
 check("Q baseline fixture structure", qm, {
-    "lines_total": 305, "lines_visible": 134, "lines_collapsed": 12, "details_blocks": 7, "details_max_depth": 1, "hs_units": 3, "kn_concepts": 2,
+    "lines_total": 306, "lines_visible": 135, "lines_collapsed": 12, "details_blocks": 7, "details_max_depth": 1, "hs_units": 3, "kn_concepts": 2,
     "graph_nodes": 4, "graph_edges": 2, "graph_edges_by_relation": "NEXT=1; USES=1", "links_internal": 34, "links_broken": 0,
     "links_from_index": 10, "links_from_hs": 3, "links_from_kn": 9, "kn_without_outgoing_link": 0, "maps_global": 1,
     "maps_local_structured": 4, "maps_local_by_source": "BLOCK=2; CONCEPT_L0=2; GRAPH=0", "maps_local_mermaid": 0,
@@ -1475,11 +1481,11 @@ check("V shape multiple relationships: outgoing / incoming groups, stored tokens
       "- [Stationarity Check](#kn-000000f3) — EVIDENCE_FOR → **Forward Filter**")
 check("V shape no semantic relationships: explicit empty state, NEXT / PART_OF not promoted", (group(kn(VD)), "Also part of: [Inference](#kn-000000f0)" in kn(VD),
       re.findall(r"^Reading order — (.+)$", kn(VD), re.M)), ("Yok.", True, ["Previous: [Stationarity Check](#kn-000000f3)"]))
-check("V shape Boundary + Reference: both collapsed, L3 collapsed, L0-L2 + Retrieval open",
-      (heads(kn(VC)), path_line(kn(VC)), summaries(kn(VC))),
+check("V shape Boundary + Reference: Boundary open as WARNING callout, L3 + Reference collapsed, L0-L2 + Retrieval open",
+      (heads(kn(VC)), path_line(kn(VC)), summaries(kn(VC)), "#### Boundary\n\n> [!WARNING]\n" in kn(VC)),
       (["Where am I?", "Semantic Relationships", "Learning Path", "L0 — Map", "L1 — Simple Mental Model", "L2 — Mechanism", "L3 — Theory", "Boundary",
         "Retrieval", "Reference"],
-       "L0 → L1 → L2 → L3 (collapsed) → Boundary (collapsed) → Retrieval → Reference (collapsed)", ["L3 — Theory", "Boundary", "Reference"]))
+       "L0 → L1 → L2 → L3 (collapsed) → Boundary → Retrieval → Reference (collapsed)", ["L3 — Theory", "Reference"], True))
 # identity, anchors, navigation
 kn_ids = [n["node_id"] for n in vv.kn_nodes(vv.sources())]
 check("V identity: marker, anchor and heading per section from node_id / canonical_name", [kn(i).splitlines()[1:3] for i in kn_ids],
@@ -1535,12 +1541,12 @@ check("V relationships before learning content in every section", [kn(i).index("
 check("V no Related Concepts part left", ("Related Concepts" in vt, "Related Concepts" in P.parts), (False, False))
 # ULA preservation and authority
 src_lines = lambda filled, keys: [l for k in keys for l in filled[k].splitlines() if l.strip() and not l.startswith("```")]  # noqa: E731
-miss = lambda b, lines: [l for l in lines if l not in b.splitlines() and not re.search(rf"^#+ {re.escape(l.lstrip('# '))}$", b, re.M)]  # noqa: E731
+miss = lambda b, lines: [l for l in lines if l not in plain(b).splitlines() and not re.search(rf"^#+ {re.escape(l.lstrip('# '))}$", b, re.M)]  # noqa: E731
 check("V every learning line of each artifact is in its Concept Home View",
       (miss(kn(VA), src_lines(L_LIGHT, L_LIGHT)), miss(kn(VB), src_lines(L_FULL, L_FULL)), miss(kn(VC), src_lines(L_BR, L_BR))), ([], [], []))
 inside = lambda b, part: (b.split(f"<summary><strong>{part}</strong></summary>", 1) + [""])[1].split("</details>")[0]  # noqa: E731
-check("V collapsed bodies keep their full text", ("Birim kök testi sıfır hipotezini sınar." in inside(kn(VC), "L3 — Theory"),
-      "Durağanlık ≠ bağımsızlık." in inside(kn(VC), "Boundary"), "$$E = \\frac{1}{K}\\sum_k e_k$$" in inside(kn(VB), "L4 — Formalism")), (True, True, True))
+check("V collapsed and callout bodies keep their full text",("Birim kök testi sıfır hipotezini sınar." in inside(kn(VC), "L3 — Theory"),
+      "> Durağanlık ≠ bağımsızlık." in kn(VC), "$$E = \\frac{1}{K}\\sum_k e_k$$" in inside(kn(VB), "L4 — Formalism")), (True, True, True))
 check("V Example and Retrieval stay open with their text", ("#### Example\n\nAylık veri, 12 pencere." in kn(VB), "#### Retrieval\n\nPencere neden ileri kayar?" in kn(VB),
       "#### Retrieval\n\nHangi feature gelecek bilgisini taşır?" in kn(VA)), (True, True, True))
 check("V authoritative files byte-identical (graph, artifacts, sync state, records)", v_auth(), v_auth0)
@@ -1659,17 +1665,17 @@ wt = vtext(pw)
 wb = blocks(wt)
 wk = lambda i: wb[f"KN:{i}"]  # noqa: E731
 rblock = lambda b: (re.findall(r"^#### Recall\n.*?(?=\n\n#### )", b, re.M | re.S) or [""])[0]  # noqa: E731
-caps = lambda b: re.findall(r"^- \[(.+?)\]\(#(kn-[0-9a-f]{8})\) — (.*)$", rblock(b), re.M)  # noqa: E731
-used = lambda b: re.findall(r"^  - \*\*Used here:\*\* (.*) \(([A-Z_]+)\)$", rblock(b), re.M)  # noqa: E731
+caps = lambda b: re.findall(r"^> - \[(.+?)\]\(#(kn-[0-9a-f]{8})\) — (.*)$", rblock(b), re.M)  # noqa: E731
+used = lambda b: re.findall(r"^>   - \*\*Used here:\*\* (.*) \(([A-Z_]+)\)$", rblock(b), re.M)  # noqa: E731
 wS = vw.sources()
 w_order = [n["node_id"] for n in vw.kn_nodes(wS)]
 check("W rules from 09 §6.6: REQUIRES / USES / DEPENDS_ON, VERIFIED, source side, earlier targets, one capsule per target, edge_id order",
       (P.recall_rule["relations"], P.recall_rule["evidence"], P.recall_rule["side"], P.recall_rule["earlier"], P.recall_rule["one_per_target"],
        P.recall_rule["edge_id_order"]), (["REQUIRES", "USES", "DEPENDS_ON"], "VERIFIED", "source", True, True, True))
 check("W direct prerequisite + repeated concept: one capsule per target, edges merged in edge_id order, duplicate triple once", rblock(wk(W3)),
-      "#### Recall\n\n- [Lattice Inference](#kn-0000e001) — Süre kafesi üzerinde `forward` ve *backward*.\n"
-      "  - **Used here:** EM kafes çıktılarını ister. (REQUIRES)\n  - **Used here:** EM `eta` sayılarını kullanır. (USES)\n"
-      "- [Model Base](#kn-0000e002) — Rejim süresini ayrı dağılımla modelleyen model.\n  - **Used here:** EM davranışı modele bağlıdır. (DEPENDS_ON)")
+      "#### Recall\n\n> [!NOTE]\n> - [Lattice Inference](#kn-0000e001) — Süre kafesi üzerinde `forward` ve *backward*.\n"
+      ">   - **Used here:** EM kafes çıktılarını ister. (REQUIRES)\n>   - **Used here:** EM `eta` sayılarını kullanır. (USES)\n"
+      "> - [Model Base](#kn-0000e002) — Rejim süresini ayrı dağılımla modelleyen model.\n>   - **Used here:** EM davranışı modele bağlıdır. (DEPENDS_ON)")
 check("W reused output: USES edge -> capsule with the stored meaning", (caps(wk(W5)), used(wk(W5))),
       ([("Lattice Inference", "kn-0000e001", WMEAN[W1])], [("Pozisyonlar causal filter kullanır.", "USES")]))
 check("W concept mentioned but recall unnecessary: name in ULA text, EVIDENCE_FOR / INFERRED edge only -> no Recall part",
@@ -1707,7 +1713,7 @@ check("W view clean; incremental == rebuild; deterministic", (vw.integrity(wt), 
 reorder = dict(wS, nodes=[n for n in wS["nodes"] if n["node_id"] != W1][:4] + [next(n for n in wS["nodes"] if n["node_id"] == W1)] +
                [n for n in wS["nodes"] if n["node_id"] != W1][4:])
 check("W section order decides 'earlier': Lattice moved after EM Loop -> EM Loop keeps only Model Base",
-      re.findall(r"^- \[(.+?)\]", vw.recall(reorder, next(n for n in reorder["nodes"] if n["node_id"] == W3)) or "", re.M), ["Model Base"])
+      re.findall(r"^> - \[(.+?)\]", vw.recall(reorder, next(n for n in reorder["nodes"] if n["node_id"] == W3)) or "", re.M), ["Model Base"])
 
 
 def w_step(version, nodes, edges):
@@ -1741,21 +1747,21 @@ def w_crafted(fn):
         vw.f.write_text(base_w, encoding="utf-8")
 
 
-CAP1 = f"- [Lattice Inference](#kn-0000e001) — {WMEAN[W1]}"
-check("W unsupported recall fact (paraphrased reminder) -> V-23", w_crafted(lambda t: t.replace(CAP1, "- [Lattice Inference](#kn-0000e001) — Kafes teorisi.", 1)), ["V-23"])
+CAP1 = f"> - [Lattice Inference](#kn-0000e001) — {WMEAN[W1]}"
+check("W unsupported recall fact (paraphrased reminder) -> V-23", w_crafted(lambda t: t.replace(CAP1, "> - [Lattice Inference](#kn-0000e001) — Kafes teorisi.", 1)), ["V-23"])
 check("W unsupported recall fact (changed used line) -> V-23", w_crafted(lambda t: t.replace("EM kafes çıktılarını ister.", "EM kafes çıktılarını ve teorisini ister.")),
       ["V-23"])
 check("W incorrect target -> V-23", w_crafted(lambda t: t.replace(CAP1, CAP1.replace("#kn-0000e001", "#kn-0000e002"), 1)), ["V-23"])
-check("W duplicated capsule -> V-23", w_crafted(lambda t: t.replace(f"{CAP1}\n  - **Used here:** Pozisyonlar causal filter kullanır. (USES)",
-      f"{CAP1}\n  - **Used here:** Pozisyonlar causal filter kullanır. (USES)\n{CAP1}\n  - **Used here:** Pozisyonlar causal filter kullanır. (USES)")), ["V-23"])
-check("W missing backlink -> V-23", w_crafted(lambda t: t.replace(CAP1, f"- Lattice Inference — {WMEAN[W1]}", 1)), ["V-23"])
+check("W duplicated capsule -> V-23", w_crafted(lambda t: t.replace(f"{CAP1}\n>   - **Used here:** Pozisyonlar causal filter kullanır. (USES)",
+      f"{CAP1}\n>   - **Used here:** Pozisyonlar causal filter kullanır. (USES)\n{CAP1}\n>   - **Used here:** Pozisyonlar causal filter kullanır. (USES)")), ["V-23"])
+check("W missing backlink -> V-23", w_crafted(lambda t: t.replace(CAP1, f"> - Lattice Inference — {WMEAN[W1]}", 1)), ["V-23"])
 check("W capsule removed -> V-23", w_crafted(lambda t: t.replace(rblock(wk(WA)) + "\n\n", "")), ["V-23"])
 check("W invented capsule in a section without recall -> V-23", w_crafted(lambda t: t.replace(wk(W9), wk(W9).replace("#### Learning Path",
-      "#### Recall\n\n- [Cycle B](#kn-0000e00a) — Döngü B.\n  - **Used here:** A, B'yi kullanır. (USES)\n\n#### Learning Path"))), ["V-23"])
+      "#### Recall\n\n> [!NOTE]\n> - [Cycle B](#kn-0000e00a) — Döngü B.\n>   - **Used here:** A, B'yi kullanır. (USES)\n\n#### Learning Path"))), ["V-23"])
 check("W Recall moved after Learning Path -> V-23", w_crafted(lambda t: t.replace(wk(WA), wk(WA).replace(rblock(wk(WA)) + "\n\n", "").replace(
       "#### L0 — Map", rblock(wk(WA)) + "\n\n#### L0 — Map"))), ["V-23"])
-check("W NEXT used line added -> V-23", w_crafted(lambda t: t.replace("  - **Used here:** Pozisyonlar causal filter kullanır. (USES)",
-      "  - **Used here:** Pozisyonlar causal filter kullanır. (USES)\n  - **Used here:** Pozisyon sonra modele döner. (NEXT)")), ["V-23"])
+check("W NEXT used line added -> V-23", w_crafted(lambda t: t.replace(">   - **Used here:** Pozisyonlar causal filter kullanır. (USES)",
+      ">   - **Used here:** Pozisyonlar causal filter kullanır. (USES)\n>   - **Used here:** Pozisyon sonra modele döner. (NEXT)")), ["V-23"])
 legacy_w = re.sub(r"#### Recall\n.*?\n\n(?=#### Learning Path)", "", base_w, flags=re.S)
 vw.f.write_text(legacy_w, encoding="utf-8")
 lw_found = [c for c, _ in vw.integrity(vtext(pw))]
@@ -1781,9 +1787,9 @@ check("W shuffled graph rows: every Recall part identical to the ordered fixture
       ([], [("EM kafes çıktılarını ister.", "REQUIRES"), ("EM `eta` sayılarını kullanır.", "USES"), ("EM davranışı modele bağlıdır.", "DEPENDS_ON")], [], True))
 O_EDGES = [wedge("KE-0001", W3, "DEPENDS_ON", W2, "Önce model."), wedge("KE-0002", W3, "USES", W1, "Sonra kafes kullanımı."),
            wedge("KE-0003", W3, "REQUIRES", W1, "Sonra kafes ön koşulu.")]
-O_BLOCK = ("#### Recall\n\n- [Model Base](#kn-0000e002) — Rejim süresini ayrı dağılımla modelleyen model.\n  - **Used here:** Önce model. (DEPENDS_ON)\n"
-           "- [Lattice Inference](#kn-0000e001) — Süre kafesi üzerinde `forward` ve *backward*.\n"
-           "  - **Used here:** Sonra kafes kullanımı. (USES)\n  - **Used here:** Sonra kafes ön koşulu. (REQUIRES)")
+O_BLOCK = ("#### Recall\n\n> [!NOTE]\n> - [Model Base](#kn-0000e002) — Rejim süresini ayrı dağılımla modelleyen model.\n>   - **Used here:** Önce model. (DEPENDS_ON)\n"
+           "> - [Lattice Inference](#kn-0000e001) — Süre kafesi üzerinde `forward` ve *backward*.\n"
+           ">   - **Used here:** Sonra kafes kullanımı. (USES)\n>   - **Used here:** Sonra kafes ön koşulu. (REQUIRES)")
 o_pre = (pws.root / GRAPH_F).read_text(encoding="utf-8")
 write_graph(pws, 2, w_nodes(), [O_EDGES[2], O_EDGES[0], O_EDGES[1]])
 vws.on_map_sync(o_pre)
@@ -1816,5 +1822,108 @@ check("W empty target short_meaning: no capsule at all, no Recall part; V-22 + V
 w_tpl = tpl.split("<!-- SITL:KN:", 1)[1]
 check("W template: Recall between Semantic Relationships and Learning Path, with the Used here line",
       (in_order(w_tpl, "#### Semantic Relationships", "#### Recall", "#### Learning Path"), "**Used here:**" in w_tpl), (True, True))
+
+# Test X - Markdown visual grammar (09 §14; 07 V-25; CLS-8 / VIS-07)
+LIGHT_X = "docs/learning/passes/LP-20261112-01/ula/LE-LP-20261112-01-01/LIGHT_ULA.md"
+X0, X1, X2, X3, X4, X5 = (f"KN-0000f10{i}" for i in range(6))
+X_PIPE = "```text\nRaw → Clean → Feature → Model → Score\n```"
+X_TABLE = "| Yöntem | Veri | Risk |\n|---|---|---|\n| Random split | Karışık | Sızıntı |\n| Walk-forward | Sıralı | Düşük |"
+X_LIGHT = {"L0 — Local Map": "Data → Split → Model", "L1 — Simple Explanation": "Veri sırayla akar.", "L2 — Mechanism": f"{X_PIPE}\n\n{X_TABLE}",
+           "L3 — Theory": "Durağanlık varsayımı zayıftır.",
+           "Boundary / Confusion Check": "```text\nvalidation ≠ holdout\n```\n\nCOMMON MISTAKE: Holdout seçime girer.\n\nCORRECT MODEL: Holdout yalnız son ölçümdür.",
+           "Retrieval": "Holdout neden seçime girmez?", "Reference": "GENERAL THEORY: time-series CV."}
+X_NODES = [node(X0, "Project Root", "ROOT"), node(X1, "Data Pipeline", "CONCEPT", X0, "L1; L2; L3", arts=LIGHT_X, meaning="Ham veriyi skora taşıyan sıra."),
+           node(X2, "Model Family", "CONCEPT", X0, "L1; L2", arts=LIGHT_A, meaning="Aday modeller.")] + \
+          [node(i, n, "CONCEPT", X2, "L1", arts=LIGHT_A, meaning=f"{n} anlamı.") for i, n in ((X3, "Child A"), (X4, "Child B"), (X5, "Child C"))]
+X_EDGES = [wedge("KE-0001", X2, "USES", X1, "Model ailesi pipeline çıktısını kullanır.")]
+px = project("px", steps=1)
+vx = View(P, px.root)
+sync(px, vx)
+light(px, LIGHT_A, "x", L_LIGHT)
+light(px, LIGHT_X, "Pipeline", X_LIGHT)
+write_graph(px, 1, X_NODES, X_EDGES)
+x_auth = lambda: {f.relative_to(px.root).as_posix(): sha(f.read_bytes()) for f in sorted((px.root / "docs/learning").rglob("*"))  # noqa: E731
+                  if f.is_file() and f.name != "STAY_IN_THE_LOOP.md"}
+x_auth0 = x_auth()
+vx.on_map_sync(None)
+xt = vtext(px)
+xb = blocks(xt)
+xk = lambda i: xb[f"KN:{i}"]  # noqa: E731
+x_part = lambda b, head: (b.split(f"\n{head}\n", 1) + [""])[1].split("\n\n#### ", 1)[0].split("\n\n<details>", 1)[0].split("\n<!-- SITL:", 1)[0].strip("\n")  # noqa: E731
+check("X grammar from 09 §14: seven primitives, each with a semantic purpose; callout uses Recall / Five things / Boundary",
+      (list(P.grammar), [k for k, r in P.grammar.items() if not r[2].strip()], P.callout),
+      (["DIAGRAM", "PATH", "NOTE", "IMPORTANT", "WARNING", "DETAILS", "TABLE"], [],
+       {"Recall": "NOTE", "Five things to remember": "IMPORTANT", "Boundary": "WARNING"}))
+check("X snapshot pipeline: Learning Path stays a PATH line; copied text pipeline verbatim, not redrawn as Mermaid",
+      (path_line(xk(X1)), x_part(xk(X1), "#### L2 — Mechanism").startswith(X_PIPE), "```mermaid" in xk(X1)),
+      ("L0 → L1 → L2 → L3 (collapsed) → Boundary → Retrieval → Reference (collapsed)", True, False))
+check("X snapshot hierarchy: local map is the DIAGRAM primitive (primary children + relation)", re.search(r"```mermaid\n.*?```", xk(X2), re.S).group(0),
+      "```mermaid\nflowchart LR\n    KN_0000f102[\"Model Family (KN-0000f102)\"]\n    KN_0000f102 --> KN_0000f103[\"Child A (KN-0000f103)\"]\n"
+      "    KN_0000f102 --> KN_0000f104[\"Child B (KN-0000f104)\"]\n    KN_0000f102 --> KN_0000f105[\"Child C (KN-0000f105)\"]\n"
+      "    KN_0000f102 -- USES --> KN_0000f101[\"Data Pipeline (KN-0000f101)\"]\n```")
+check("X snapshot comparison: copied table verbatim (TABLE not generated, not reformatted)", x_part(xk(X1), "#### L2 — Mechanism"), f"{X_PIPE}\n\n{X_TABLE}")
+check("X snapshot warning: Boundary is a WARNING callout, every line quoted, blank lines '>'", x_part(xk(X1), "#### Boundary"),
+      "> [!WARNING]\n> ```text\n> validation ≠ holdout\n> ```\n>\n> COMMON MISTAKE: Holdout seçime girer.\n>\n> CORRECT MODEL: Holdout yalnız son ölçümdür.")
+check("X snapshot recall: Recall part is one NOTE callout", rblock(xk(X2)),
+      "#### Recall\n\n> [!NOTE]\n> - [Data Pipeline](#kn-0000f101) — Ham veriyi skora taşıyan sıra.\n>   - **Used here:** Model ailesi pipeline çıktısını kullanır. (USES)")
+check("X snapshot collapsed theory: L3 is the DETAILS primitive", re.search(r"<details>\n<summary><strong>L3 — Theory</strong></summary>\n.*?</details>", xk(X1), re.S).group(0),
+      "<details>\n<summary><strong>L3 — Theory</strong></summary>\n\nDurağanlık varsayımı zayıftır.\n\n</details>")
+check("X snapshot renderer fallback: without callouts every source line is present; Mermaid nodes also listed as linked text",
+      (miss(xk(X1), src_lines(X_LIGHT, X_LIGHT)), [i for i in (X1, X2, X3, X4, X5) if f"](#{i.lower()})" not in line(xb["MAP"], "**Concepts:**")],
+       "- [Model Family](#kn-0000f102) — USES → [Data Pipeline](#kn-0000f101)" in xb["MAP"]), ([], [], True))
+x_old = vm.Protocol(SKILL)
+x_old.collapsed, x_old.callout = x_old.collapsed + ["Boundary"], {}
+x_legacy = View(x_old, px.root).rebuild()
+
+
+def x_content(text):
+    """Text a reader gets with every primitive marker removed (09 §14 fallback); collapse markers in the Learning Path ignored."""
+    out = []
+    for l in plain(text).splitlines():
+        s = re.fullmatch(r"<summary><strong>(.+)</strong></summary>", l)
+        if l not in ("<details>", "</details>") and l.strip():
+            out.append((f"#### {s.group(1)}" if s else l).replace(" (collapsed)", ""))
+    return out
+
+
+check("X formatting does not change meaning: pre-grammar render and grammar render carry the same text, links and order",
+      (x_legacy != xt, x_content(x_legacy) == x_content(xt), vm.link_targets(x_legacy) == vm.link_targets(xt)), (True, True, True))
+x_kinds = sorted({(h, k) for h, k in re.findall(r"^#### (.+)\n\n> \[!([A-Z]+)\]$", xt, re.M)})
+check("X same information type -> same primitive: callouts only for their grammar use; summaries only for DETAILS uses",
+      (x_kinds, sorted(set(summaries(xt)))), ([("Boundary", "WARNING"), ("Recall", "NOTE")], ["L3 — Theory", "Reference", "Technical Project Snapshot", "Technical Trace"]))
+check("X no decorative diagram: Mermaid only for the global map and the one local map; every diagram draws edges",
+      (len(vm.mermaid_blocks(xt)), [k for k, b in xb.items() if "```mermaid" in b], all("-->" in b for b in vm.mermaid_blocks(xt))), (2, [f"KN:{X2}", "MAP"], True))
+check("X nesting bounded: details depth 1, no callout or Mermaid inside a callout or <details>, V-25 clean",
+      (RB.visibility(xt)[3], re.findall(r"^> (?:\[!|```mermaid)", xt.replace("> [!WARNING]", "").replace("> [!NOTE]", ""), re.M), vx.grammar_stale(xt, View.spans(xt))),
+      (1, [], []))
+check("X authoritative files byte-identical; view clean; incremental == rebuild; deterministic", (x_auth(), vx.integrity(xt), xt == vx.rebuild(), vx.rebuild() == vx.rebuild()),
+      (x_auth0, [], True, True))
+X_BOUND = x_part(xk(X1), "#### Boundary")
+x_crafted = lambda fn: [c for c, _ in vx.integrity(fn(xt))]  # noqa: E731
+check("X V-25: Boundary collapsed again", x_crafted(lambda t: t.replace(f"#### Boundary\n\n{X_BOUND}",
+      "<details>\n<summary><strong>Boundary</strong></summary>\n\n" + plain(X_BOUND).strip() + "\n\n</details>")), ["V-25"])
+check("X V-25: Boundary with the wrong callout kind", x_crafted(lambda t: t.replace("> [!WARNING]", "> [!NOTE]")), ["V-25"])
+check("X V-25: Boundary as plain text (no callout)", x_crafted(lambda t: t.replace(f"#### Boundary\n\n{X_BOUND}", "#### Boundary\n\n" + plain(X_BOUND).strip())), ["V-25"])
+check("X V-25: collapsed L3 opened", x_crafted(lambda t: t.replace("<details>\n<summary><strong>L3 — Theory</strong></summary>\n\nDurağanlık varsayımı zayıftır.\n\n</details>",
+      "#### L3 — Theory\n\nDurağanlık varsayımı zayıftır.")), ["V-25"])
+check("X V-25: callout inside <details>", x_crafted(lambda t: t.replace("\n\nDurağanlık varsayımı zayıftır.\n\n</details>",
+      "\n\n> [!NOTE]\n> Durağanlık varsayımı zayıftır.\n\n</details>")), ["V-25"])
+check("X V-23 + V-25: Recall as a plain list (VIS-06 format)", x_crafted(lambda t: t.replace(rblock(xk(X2)), "#### Recall\n\n" + plain(rblock(xk(X2)).split("\n\n", 1)[1]))),
+      ["V-23", "V-25"])
+p_now = vtext(pp)
+check("X MODEL: Five things to remember is an IMPORTANT callout; removing it -> V-25 only",
+      ("#### Five things to remember\n\n> [!IMPORTANT]\n" in blocks(p_now)["MODEL"], [c for c, _ in vp.integrity(p_now)],
+       [c for c, _ in vp.integrity(p_now.replace("#### Five things to remember\n\n> [!IMPORTANT]\n", "#### Five things to remember\n\n"))]),
+      (True, ["V-15"], ["V-15", "V-25"]))
+vx.f.write_text(x_legacy, encoding="utf-8")
+xl_found = [c for c, _ in vx.integrity(vtext(px))]
+xl_res = vx.repair()[1]
+xl_after = blocks(vtext(px))
+check("X VIS-06 format view -> V-23 + V-25; repair rewrites exactly the Boundary and Recall sections; == rebuild",
+      (xl_found, xl_res, sorted(k for k in xl_after if xl_after[k] != blocks(x_legacy).get(k)), vtext(px) == xt),
+      (["V-23", "V-25"], "REPAIRED", [f"KN:{X1}", f"KN:{X2}"], True))
+check("X template: IMPORTANT / NOTE / WARNING callouts at their parts; Boundary no longer collapsed",
+      ("#### Five things to remember\n\n> [!IMPORTANT]\n" in tpl, "#### Recall\n\n> [!NOTE]\n" in tpl, "#### Boundary\n\n> [!WARNING]\n" in tpl,
+       "<summary><strong>Boundary</strong></summary>" in tpl), (True, True, True, False))
 
 report(RESULTS)
