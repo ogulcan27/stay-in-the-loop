@@ -53,7 +53,9 @@ STAY_IN_THE_LOOP.md (derived)  → human-facing projection
 | local_map_min_children | 3 |
 | map_label_max_chars | 48 |
 | global_map_max_nodes | 30 |
-| collapsed | L3; L4; Reference |
+| collapsed | L3; L4; Retrieval; Reference |
+| primary | Where am I?; Semantic Relationships; Recall; L0; L1; L2 |
+| details_max_depth | 1 |
 | recall_relations | REQUIRES; USES; DEPENDS_ON |
 | recall_evidence | VERIFIED |
 | key_terms_max | 5 |
@@ -332,7 +334,7 @@ KN section kavramın **Concept Home View**'udur: okuyucuyu ders derinliğinden �
 
 - Sıra tablo sırasıdır. In one sentence ve Local Map Where am I? part'ının içinde durur (§6.3, §7.2).
 - Yalnız ULA pass'in gerçekten ürettiği level gösterilir. Light ULA L4 üretmez. Boş level uydurulmaz.
-- `collapsed` part'ları `<details>` içinde durur. L0, L1, L2, Boundary, Example ve Retrieval açık kalır.
+- `collapsed` part'ları `<details>` içinde durur. L0, L1, L2, Boundary ve Example açık kalır (§15).
 - Boundary gövdesi `WARNING` callout'udur (§14).
 - Self-Check, Content Integrity Check, Metadata, Orientation, Oral Version ve Transition gösterilmez. Bunlar audit içindir.
 
@@ -661,6 +663,7 @@ Yeni bir presentation değişikliği bu sözleşmeye göre değerlendirilir. Ger
 | `lines_collapsed` | `<details>` içindeki boş olmayan satırlar |
 | `details_blocks` | `<details>` blok sayısı |
 | `details_max_depth` | En derin iç içe `<details>` seviyesi |
+| `primary_expansions` | KN section'larında `primary` part'ı (§1) taşıyan `<details>` blok sayısı: L1 / L2'yi tamamlamak için gereken açma sayısı |
 | `hs_units` | HS section sayısı |
 | `kn_concepts` | KN section sayısı |
 | `graph_nodes` | Semantic Graph node sayısı |
@@ -736,7 +739,7 @@ View'ın ürettiği her bilgi türü tek bir Markdown primitive'i ile gösterili
 | `NOTE` | `> [!NOTE]` callout | Daha önce okunan kavramı hatırlatır | `Recall` | Blockquote. `[!NOTE]` düz metin görünür. |
 | `IMPORTANT` | `> [!IMPORTANT]` callout | Korunması gereken invariant ve karar | `Five things to remember` | Blockquote. `[!IMPORTANT]` düz metin görünür. |
 | `WARNING` | `> [!WARNING]` callout | Sık hata ve kavram sınırı (confusion check) | `Boundary` | Blockquote. `[!WARNING]` düz metin görünür. |
-| `DETAILS` | `<details>` + `<summary><strong>…</strong></summary>` | Derin teori, formalism, referans ve evidence; varsayılan kapalı | `collapsed` part'ları (§1); `Technical Trace` (§5.1); `Technical Project Snapshot` (§5.3) | HTML desteklemeyen renderer gövdeyi açık gösterir. |
+| `DETAILS` | `<details>` + `<summary><strong>…</strong></summary>` | Derin teori, formalism, okuma sonrası pratik, referans ve evidence; varsayılan kapalı | `collapsed` part'ları (§1); `Technical Trace` (§5.1); `Technical Project Snapshot` (§5.3) | HTML desteklemeyen renderer gövdeyi açık gösterir. |
 | `TABLE` | Markdown table | Aynı özelliklerle karşılaştırma | Yok. View karşılaştırma üretmez. | - |
 
 - Aynı bilgi türü her section'da aynı primitive'i alır. Tablodaki kullanım dışında callout, `<details>` veya Mermaid üretilmez.
@@ -746,6 +749,30 @@ View'ın ürettiği her bilgi türü tek bir Markdown primitive'i ile gösterili
 - Nesting sınırı: View primitive'leri iç içe koymaz. `<details>` iç içe olmaz (`details_max_depth` 1). Callout `<details>` veya başka callout içinde durmaz. `DIAGRAM` callout veya `<details>` içinde durmaz.
 - Fallback: Callout, `<details>` veya Mermaid desteklemeyen renderer'da bilgi kaybolmaz. Primitive işaretleri (`> `, `> [!<KIND>]`, `<details>`, `<summary>`) çıkarılınca kalan metin part gövdesinin aynısıdır.
 - Grammar'dan farklı biçimde duran callout veya `collapsed` part'ı `07` V-25 ile raporlanır. Repair section'ı yeniden üretir.
+
+---
+
+## 15. Progressive disclosure
+
+Varsayılan görünüm okuyucunun ana yolunu açık tutar. İleri ve destek içerik tek açma ile görünür. Bilgi silinmez, kısaltılmaz, taşınmaz.
+
+| layer | default | view |
+|---|---|---|
+| `NAVIGATION` | OPEN | Project Home, Project Journey, Knowledge Map, Open Learning Debt; breadcrumb, Reading order, Learning Path |
+| `ORIENTATION` | OPEN | Project in 60 Seconds HUMAN part'ları; HS HUMAN part'ları (§5.1); KN Where am I?, Semantic Relationships, Recall |
+| `PRIMARY` | OPEN | KN L0, L1, L2; Boundary; Example |
+| `PRACTICE` | COLLAPSED | KN Retrieval |
+| `DEEP` | COLLAPSED | KN L3, L4, Reference; HS Technical Trace; Technical Project Snapshot |
+
+- `primary` part'ları (§1) hiçbir zaman `<details>` içinde durmaz. L1 / L2'yi tamamlamak için açma gerekmez: `primary_expansions` 0'dır (§13.2).
+- `primary` ve `collapsed` kesişmez.
+- L1 / L2'nin ön koşulu yalnız kapalı part'ta durmaz. Ön koşul hatırlatması Recall'dır (§6.6). Konum ve ilişki Where am I? ve Semantic Relationships'tedir. Üçü de `primary`'dir.
+- `<details>` derinliği `details_max_depth`'i aşmaz. View `<details>` iç içe koymaz (§14).
+- Kapalı part adıyla görünür kalır: `<summary>` satırı ve Learning Path `(collapsed)` işareti. Okuyucu tam teoriyi aramadan bulur.
+- HS HUMAN katmanı açık kalır. Journey satırından gelen okuyucu zihinsel modeli ikinci açma olmadan görür. Yalnız Technical Trace kapalıdır (§5.1).
+- Collapse yalnız sunumdur. Metin, sıra, link ve anchor değişmez. `<details>` ve `<summary>` işaretleri çıkarılınca kalan metin aynıdır (§14 fallback). HTML desteklemeyen renderer içeriği açık gösterir. JavaScript gerekmez.
+- Başarı ölçüsü yalnız `lines_visible` değildir. `primary_expansions` 0 ve `details_max_depth` sınırı birlikte sağlanır.
+- `primary` part'ı `<details>` içinde veya sınırı aşan `<details>` derinliği `07` V-26 ile raporlanır. Repair section'ı yeniden üretir.
 
 ---
 

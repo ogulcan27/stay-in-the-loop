@@ -257,6 +257,7 @@ Kapsam: Yalnız active project root altındaki `docs/learning/STAY_IN_THE_LOOP.m
 | V-23 | KN `Recall` part'ı graph'tan türeyen render ile uyuşmuyor: capsule, hedef, link, metin, relation, sıra veya tekrar (`09` §6.6) | WARNING | rebuild `KNOWLEDGE_VIEW` KN section |
 | V-24 | Recall koşulunu sağlayan edge'in hedef `short_meaning` veya edge `meaning` değeri boş veya `-`; capsule yazılmadı (`09` §6.6) | WARNING | Rapor edilir. Graph ile düzeltilir (`05` §3, §4). View metin uydurmaz. |
 | V-25 | KN veya MODEL part'ı visual grammar primitive'inden farklı biçimde: callout part'ı callout değil veya başka türde; `collapsed` part'ı `<details>` dışında; callout part'ı `<details>` içinde (`09` §14) | WARNING | rebuild `KNOWLEDGE_VIEW` section |
+| V-26 | Progressive disclosure ihlali: KN `primary` part'ı `<details>` içinde veya `<details>` derinliği `details_max_depth`'i aşıyor (`09` §15) | WARNING | rebuild `KNOWLEDGE_VIEW` section |
 
 - Candidate FAIL → view yazılmaz. Authoritative write geri alınmaz. Sonuç WARNING olarak raporlanır.
 - Mevcut dosyada FAIL → Final Integrity FAIL. View bozuk veya yanıltıcıdır. Tam rebuild yalnız kullanıcı onayı ile yapılır (`09` §12).

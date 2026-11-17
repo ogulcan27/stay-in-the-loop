@@ -248,9 +248,10 @@ check("D map sync -> view updated", vd.on_map_sync(pre_graph, rd), "UPDATED")
 d1 = vtext(pd)
 kb = blocks(d1)["KN:KN-0000000b"]
 check("D Light concept in STAY_IN_THE_LOOP.md", ("### KN-0000000b — Temporal Leakage" in kb, "Skor yanlış iyi görünür." in kb), (True, True))
-check("D Light levels only L0-L2 (+Retrieval), after the Concept Home parts", re.findall(r"^#### (.+)$", kb, re.M),
-      ["Where am I?", "Semantic Relationships", "Learning Path", "L0 — Map", "L1 — Simple Mental Model", "L2 — Mechanism", "Retrieval"])
-check("D Light: no L3 / L4 fabricated", ("L3 —" in kb, "L4 —" in kb, "<details>" in kb), (False, False, False))
+check("D Light levels only L0-L2 open (Retrieval collapsed), after the Concept Home parts", re.findall(r"^#### (.+)$", kb, re.M),
+      ["Where am I?", "Semantic Relationships", "Learning Path", "L0 — Map", "L1 — Simple Mental Model", "L2 — Mechanism"])
+check("D Light: no L3 / L4 fabricated; only Retrieval collapsed", ("L3 —" in kb, "L4 —" in kb, re.findall(r"<summary><strong>(.+)</strong></summary>", kb)),
+      (False, False, ["Retrieval"]))
 check("D Light: Self-Check / Metadata not shown", ("Self-Check" in kb, "mode: LIGHT" in kb), (False, False))
 check("D marker depth = available_depth", View.spans(d1)["KN:KN-0000000b"][2]["depth"], "L1;L2")
 after_files = sorted(f.relative_to(pd.root).as_posix() for f in pd.root.rglob("*") if f.is_file() and ".git" not in f.parts)
@@ -270,7 +271,7 @@ kf = blocks(d2)["KN:KN-0000000b"]
 check("D Full: deeper levels in the same section", (d2.count("SITL:KN:KN-0000000b:START"), "<summary><strong>L3 — Theory</strong></summary>" in kf,
       "<summary><strong>L4 — Formalism</strong></summary>" in kf), (1, True, True))
 check("D Full: L1 from latest artifact, L0 kept", ("Zaman sırasını koruyarak test et." in kf, "#### L0 — Map" in kf), (True, True))
-check("D Full: L0-L2 open, L3 / L4 / Reference collapsed", (kf.count("<details>"), "#### L2 — Mechanism" in kf), (3, True))
+check("D Full: L0-L2 open, L3 / L4 / Retrieval / Reference collapsed", (kf.count("<details>"), "#### L2 — Mechanism" in kf), (4, True))
 check("D Full: internal artifact parts not shown", [x for x in ("internal Oral Version", "internal Content Integrity Check", "internal Transition")
                                                   if x in kf], [])
 check("D Full: inner artifact headings demoted", (re.findall(r"^#{1,3} ", kf, re.M), "###### Core Idea" in kf), (["### "], True))
@@ -437,7 +438,7 @@ check("J lesson text once per concept section", all(b.count("Skor yanlış iyi g
 check("J semantic relationships link to sections", "- **Hidden-State Models** — USES → [Duration Model](#kn-00000040)" in jb["KN:KN-00000020"], True)
 
 # Test K - 07 §V integrity, candidate safety, write failure (spec 33, 34)
-check("K 25 V checks", sorted(P.checks), [f"V-{i:02d}" for i in range(1, 26)])
+check("K 26 V checks", sorted(P.checks), [f"V-{i:02d}" for i in range(1, 27)])
 check("K structural / misleading checks FAIL", sorted(c for c, s in P.checks.items() if s == "FAIL"),
       ["V-02", "V-03", "V-04", "V-05", "V-09", "V-10", "V-12", "V-13"])
 base = vtext(pd)
@@ -695,7 +696,7 @@ check("O status lines", P.status_line, {"SYNCED": "Current", "STALE": "Needs ref
 check("O HS template parts = 09 §5.1 mapping", P.hs_sections, [v for v, _, _ in P.hs_map])
 check("O MODEL template = 09 §3 heading + §5.3 parts", (P.model_template_heading, P.model_sections), (P.model_heading, [v for v, _, _ in P.model_map]))
 check("O Light has no L4 source", P.artifact_map["L4 — Formalism"]["LIGHT"], None)
-check("O collapsed parts (Boundary is a WARNING callout, 09 §14)", P.collapsed, ["L3", "L4", "Reference"])
+check("O collapsed parts (Boundary is a WARNING callout, 09 §14; Retrieval is practice, 09 §15)", P.collapsed, ["L3", "L4", "Retrieval", "Reference"])
 s07 = (SKILL / "references" / "07_INTEGRITY_CHECKS.md").read_text(encoding="utf-8")
 check("O 07 §L.1 KNOWLEDGE_VIEW is DERIVED", bool(re.search(r"^\| `KNOWLEDGE_VIEW` \| DERIVED \|", s07, re.M)), True)
 check("O 07 §L.3 runs §V", "+ §V + §L checks" in s07, True)
@@ -718,7 +719,7 @@ q0, qt, qg = q_files(), vtext(pq), (pq.root / GRAPH_F).read_text(encoding="utf-8
 qm = RB.metrics(qt, qg, SKILL)
 check("Q baseline tool reports exactly the 09 §13.2 metrics", list(qm), P.metrics)
 check("Q baseline fixture structure", qm, {
-    "lines_total": 306, "lines_visible": 135, "lines_collapsed": 12, "details_blocks": 7, "details_max_depth": 1, "hs_units": 3, "kn_concepts": 2,
+    "lines_total": 312, "lines_visible": 133, "lines_collapsed": 14, "details_blocks": 9, "details_max_depth": 1, "primary_expansions": 0, "hs_units": 3, "kn_concepts": 2,
     "graph_nodes": 4, "graph_edges": 2, "graph_edges_by_relation": "NEXT=1; USES=1", "links_internal": 34, "links_broken": 0,
     "links_from_index": 10, "links_from_hs": 3, "links_from_kn": 9, "kn_without_outgoing_link": 0, "maps_global": 1,
     "maps_local_structured": 4, "maps_local_by_source": "BLOCK=2; CONCEPT_L0=2; GRAPH=0", "maps_local_mermaid": 0,
@@ -1462,15 +1463,16 @@ path_line = lambda b: b.split("#### Learning Path\n\n", 1)[1].split("\n", 1)[0] 
 summaries = lambda b: re.findall(r"^<summary><strong>(.+)</strong></summary>$", b, re.M)  # noqa: E731
 group = lambda b: b.split("#### Semantic Relationships\n\n", 1)[1].split("\n\n#### ", 1)[0]  # noqa: E731
 # the six CLS-6 concept shapes
-check("V shape L1/L2 only: Concept Home parts, then L0-L2 + Retrieval open, nothing collapsed",
-      (heads(kn(VA)), path_line(kn(VA)), kn(VA).count("<details>")),
+check("V shape L1/L2 only: Concept Home parts, then L0-L2 open, only Retrieval collapsed",
+      (heads(kn(VA)), path_line(kn(VA)), summaries(kn(VA))),
       (["Where am I?", "Semantic Relationships", "Learning Path", "L0 — Map", "L1 — Simple Mental Model", "L2 — Mechanism", "Retrieval"],
-       "L0 → L1 → L2 → Retrieval", 0))
-check("V shape L1-L4: L0-L2, Example, Retrieval open; L3, L4, Reference collapsed",
+       "L0 → L1 → L2 → Retrieval (collapsed)", ["Retrieval"]))
+check("V shape L1-L4: L0-L2, Example open; L3, L4, Retrieval, Reference collapsed",
       (heads(kn(VB)), path_line(kn(VB)), summaries(kn(VB))),
       (["Where am I?", "Semantic Relationships", "Learning Path", "L0 — Map", "L1 — Simple Mental Model", "L2 — Mechanism", "L3 — Theory",
         "L4 — Formalism", "Example", "Retrieval", "Reference"],
-       "L0 → L1 → L2 → L3 (collapsed) → L4 (collapsed) → Example → Retrieval → Reference (collapsed)", ["L3 — Theory", "L4 — Formalism", "Reference"]))
+       "L0 → L1 → L2 → L3 (collapsed) → L4 (collapsed) → Example → Retrieval (collapsed) → Reference (collapsed)",
+       ["L3 — Theory", "L4 — Formalism", "Retrieval", "Reference"]))
 check("V shape no local map: 2 primary children (< local_map_min_children) -> no graph map; ULA L0 kept",
       (len(vv.children(vv.sources(), next(n for n in vv.sources()["nodes"] if n["node_id"] == VD))), vm.mermaid_blocks(kn(VD) + "\n"),
        "#### L0 — Map" in kn(VD)), (2, [], True))
@@ -1481,11 +1483,11 @@ check("V shape multiple relationships: outgoing / incoming groups, stored tokens
       "- [Stationarity Check](#kn-000000f3) — EVIDENCE_FOR → **Forward Filter**")
 check("V shape no semantic relationships: explicit empty state, NEXT / PART_OF not promoted", (group(kn(VD)), "Also part of: [Inference](#kn-000000f0)" in kn(VD),
       re.findall(r"^Reading order — (.+)$", kn(VD), re.M)), ("Yok.", True, ["Previous: [Stationarity Check](#kn-000000f3)"]))
-check("V shape Boundary + Reference: Boundary open as WARNING callout, L3 + Reference collapsed, L0-L2 + Retrieval open",
+check("V shape Boundary + Reference: Boundary open as WARNING callout, L3 + Retrieval + Reference collapsed, L0-L2 open",
       (heads(kn(VC)), path_line(kn(VC)), summaries(kn(VC)), "#### Boundary\n\n> [!WARNING]\n" in kn(VC)),
       (["Where am I?", "Semantic Relationships", "Learning Path", "L0 — Map", "L1 — Simple Mental Model", "L2 — Mechanism", "L3 — Theory", "Boundary",
         "Retrieval", "Reference"],
-       "L0 → L1 → L2 → L3 (collapsed) → Boundary → Retrieval → Reference (collapsed)", ["L3 — Theory", "Reference"], True))
+       "L0 → L1 → L2 → L3 (collapsed) → Boundary → Retrieval (collapsed) → Reference (collapsed)", ["L3 — Theory", "Retrieval", "Reference"], True))
 # identity, anchors, navigation
 kn_ids = [n["node_id"] for n in vv.kn_nodes(vv.sources())]
 check("V identity: marker, anchor and heading per section from node_id / canonical_name", [kn(i).splitlines()[1:3] for i in kn_ids],
@@ -1547,8 +1549,8 @@ check("V every learning line of each artifact is in its Concept Home View",
 inside = lambda b, part: (b.split(f"<summary><strong>{part}</strong></summary>", 1) + [""])[1].split("</details>")[0]  # noqa: E731
 check("V collapsed and callout bodies keep their full text",("Birim kök testi sıfır hipotezini sınar." in inside(kn(VC), "L3 — Theory"),
       "> Durağanlık ≠ bağımsızlık." in kn(VC), "$$E = \\frac{1}{K}\\sum_k e_k$$" in inside(kn(VB), "L4 — Formalism")), (True, True, True))
-check("V Example and Retrieval stay open with their text", ("#### Example\n\nAylık veri, 12 pencere." in kn(VB), "#### Retrieval\n\nPencere neden ileri kayar?" in kn(VB),
-      "#### Retrieval\n\nHangi feature gelecek bilgisini taşır?" in kn(VA)), (True, True, True))
+check("V Example stays open; Retrieval collapsed with its full text", ("#### Example\n\nAylık veri, 12 pencere." in kn(VB),
+      inside(kn(VB), "Retrieval").strip(), inside(kn(VA), "Retrieval").strip()), (True, "Pencere neden ileri kayar?", "Hangi feature gelecek bilgisini taşır?"))
 check("V authoritative files byte-identical (graph, artifacts, sync state, records)", v_auth(), v_auth0)
 check("V no second store: only STAY_IN_THE_LOOP.md is human-facing; no Concept Home (06) file or link",
       (human_files(pv.root), "CH-" in vt, [p for p in (pv.root / "docs/learning").rglob("*") if p.is_file() and "concepts" in p.parts]), (["STAY_IN_THE_LOOP.md"], False, []))
@@ -1706,7 +1708,7 @@ in_order = lambda b, *ms: -1 not in [b.find(m) for m in ms] and [b.find(m) for m
 check("W placement: Semantic Relationships -> Recall -> Learning Path -> L0, visible (no <details>)",
       [in_order(wk(i), "#### Semantic Relationships", "#### Recall", "#### Learning Path", "#### L0 — Map") and "<details>" not in rblock(wk(i))
        for i in (W3, W5, WA, WB)], [True] * 4)
-check("W Recall outside ULA content: learning path and ULA lines unchanged", (path_line(wk(W3)), miss(wk(W3), src_lines(L_LIGHT, L_LIGHT))), ("L0 → L1 → L2 → Retrieval", []))
+check("W Recall outside ULA content: learning path and ULA lines unchanged", (path_line(wk(W3)), miss(wk(W3), src_lines(L_LIGHT, L_LIGHT))), ("L0 → L1 → L2 → Retrieval (collapsed)", []))
 check("W no Human Sync capsule; Recall only in KN sections", [k for k, b in wb.items() if "#### Recall" in b and not k.startswith("KN:")], [])
 check("W authoritative files byte-identical; only STAY_IN_THE_LOOP.md human-facing", (w_auth(), human_files(pw.root)), (w_auth0, ["STAY_IN_THE_LOOP.md"]))
 check("W view clean; incremental == rebuild; deterministic", (vw.integrity(wt), wt == vw.rebuild(), vw.rebuild() == vw.rebuild()), ([], True, True))
@@ -1856,7 +1858,7 @@ check("X grammar from 09 §14: seven primitives, each with a semantic purpose; c
        {"Recall": "NOTE", "Five things to remember": "IMPORTANT", "Boundary": "WARNING"}))
 check("X snapshot pipeline: Learning Path stays a PATH line; copied text pipeline verbatim, not redrawn as Mermaid",
       (path_line(xk(X1)), x_part(xk(X1), "#### L2 — Mechanism").startswith(X_PIPE), "```mermaid" in xk(X1)),
-      ("L0 → L1 → L2 → L3 (collapsed) → Boundary → Retrieval → Reference (collapsed)", True, False))
+      ("L0 → L1 → L2 → L3 (collapsed) → Boundary → Retrieval (collapsed) → Reference (collapsed)", True, False))
 check("X snapshot hierarchy: local map is the DIAGRAM primitive (primary children + relation)", re.search(r"```mermaid\n.*?```", xk(X2), re.S).group(0),
       "```mermaid\nflowchart LR\n    KN_0000f102[\"Model Family (KN-0000f102)\"]\n    KN_0000f102 --> KN_0000f103[\"Child A (KN-0000f103)\"]\n"
       "    KN_0000f102 --> KN_0000f104[\"Child B (KN-0000f104)\"]\n    KN_0000f102 --> KN_0000f105[\"Child C (KN-0000f105)\"]\n"
@@ -1890,7 +1892,7 @@ check("X formatting does not change meaning: pre-grammar render and grammar rend
       (x_legacy != xt, x_content(x_legacy) == x_content(xt), vm.link_targets(x_legacy) == vm.link_targets(xt)), (True, True, True))
 x_kinds = sorted({(h, k) for h, k in re.findall(r"^#### (.+)\n\n> \[!([A-Z]+)\]$", xt, re.M)})
 check("X same information type -> same primitive: callouts only for their grammar use; summaries only for DETAILS uses",
-      (x_kinds, sorted(set(summaries(xt)))), ([("Boundary", "WARNING"), ("Recall", "NOTE")], ["L3 — Theory", "Reference", "Technical Project Snapshot", "Technical Trace"]))
+      (x_kinds, sorted(set(summaries(xt)))), ([("Boundary", "WARNING"), ("Recall", "NOTE")], ["L3 — Theory", "Reference", "Retrieval", "Technical Project Snapshot", "Technical Trace"]))
 check("X no decorative diagram: Mermaid only for the global map and the one local map; every diagram draws edges",
       (len(vm.mermaid_blocks(xt)), [k for k, b in xb.items() if "```mermaid" in b], all("-->" in b for b in vm.mermaid_blocks(xt))), (2, [f"KN:{X2}", "MAP"], True))
 check("X nesting bounded: details depth 1, no callout or Mermaid inside a callout or <details>, V-25 clean",
@@ -1925,5 +1927,64 @@ check("X VIS-06 format view -> V-23 + V-25; repair rewrites exactly the Boundary
 check("X template: IMPORTANT / NOTE / WARNING callouts at their parts; Boundary no longer collapsed",
       ("#### Five things to remember\n\n> [!IMPORTANT]\n" in tpl, "#### Recall\n\n> [!NOTE]\n" in tpl, "#### Boundary\n\n> [!WARNING]\n" in tpl,
        "<summary><strong>Boundary</strong></summary>" in tpl), (True, True, True, False))
+
+# Test Y - progressive disclosure and density control (09 §15, §13.2; 07 V-26; CLS-9 / VIS-08)
+y_old = vm.Protocol(SKILL)
+y_old.collapsed = [c for c in y_old.collapsed if c != "Retrieval"]
+y_legacy = View(y_old, pv.root).rebuild()
+y_graph = (pv.root / GRAPH_F).read_text(encoding="utf-8")
+ym_old, ym_new = RB.metrics(y_legacy, y_graph, SKILL), RB.metrics(vt, y_graph, SKILL)
+check("Y contract: primary = orientation + prerequisite recall + L0-L2; disjoint from collapsed; nesting bound 1",
+      (P.primary, set(P.primary) & set(P.collapsed), P.int_rule("details_max_depth")),
+      (["Where am I?", "Semantic Relationships", "Recall", "L0", "L1", "L2"], set(), 1))
+check("Y primary parts are 09 §6.1 parts (short names)", [p for p in P.primary if p not in [vm.short_part(x) for x in P.parts]], [])
+check("Y required expansions to complete L1/L2 = 0 (Q, V, X views)", [RB.metrics(t, g, SKILL)["primary_expansions"] for t, g in
+      ((qt, qg), (vt, y_graph), (xt, (px.root / GRAPH_F).read_text(encoding="utf-8")))], [0, 0, 0])
+y_open = lambda b: [h for h in re.findall(r"^#### (.+)$", b.split("<details>")[0] + "".join(x.split("</details>", 1)[-1] for x in b.split("<details>")[1:]), re.M)]  # noqa: E731
+check("Y every primary part of each concept is a visible #### heading, outside <details>",
+      [[p for p in P.parts if vm.short_part(p) in P.primary and (f"#### {p}\n" in kn(i) or f"<strong>{p}</strong>" in kn(i)) and p not in y_open(kn(i))]
+       for i in kn_ids], [[]] * len(kn_ids))
+check("Y advanced material progressively disclosed: L3 / L4 / Retrieval / Reference only as <summary> lines",
+      sorted({s for i in kn_ids for s in summaries(kn(i))}), ["L3 — Theory", "L4 — Formalism", "Reference", "Retrieval"])
+check("Y Learning Path names every part, collapsed ones marked (theory findable without search)", path_line(kn(VB)),
+      "L0 → L1 → L2 → L3 (collapsed) → L4 (collapsed) → Example → Retrieval (collapsed) → Reference (collapsed)")
+check("Y visible lines decrease vs VIS-07 rule; nesting stays 1; nothing primary collapsed",
+      (ym_new["lines_visible"] < ym_old["lines_visible"], ym_new["details_max_depth"], ym_old["primary_expansions"], ym_new["primary_expansions"]),
+      (True, 1, 0, 0))
+check("Y full raw knowledge present: same reader text, links and order as the VIS-07 render (markers removed)",
+      (y_legacy != vt, x_content(y_legacy) == x_content(vt), vm.link_targets(y_legacy) == vm.link_targets(vt)), (True, True, True))
+y_nav = lambda t: [a for a in vm.anchors_of(t) if a in set(P.anchor.values()) or re.fullmatch(r"(kn|hs)-[0-9a-f]{8}", a)]  # noqa: E731
+check("Y navigation anchors unchanged; no link points to a removed part-heading slug",
+      (y_nav(y_legacy) == y_nav(vt), [t for t in vm.link_targets(vt) if t not in vm.anchors_of(vt)]), (True, []))
+check("Y Human Sync sections byte-identical (HS HUMAN layer stays open, 09 §15)",
+      [k for k, b in blocks(vt).items() if k.startswith(("HS:", "MODEL", "JOURNEY", "INDEX")) and blocks(y_legacy).get(k) != b], [])
+check("Y Markdown without JavaScript: only details / summary / strong / a-id HTML in the view",
+      sorted(set(re.findall(r"</?([a-z]+)", re.sub(r"```.*?```", "", vt, flags=re.S)))), ["a", "details", "strong", "summary"])
+X_L2 = x_part(xk(X1), "#### L2 — Mechanism")
+check("Y V-26: primary mechanism (L2) moved into <details>",
+      x_crafted(lambda t: t.replace(f"#### L2 — Mechanism\n\n{X_L2}", f"<details>\n<summary><strong>L2 — Mechanism</strong></summary>\n\n{X_L2}\n\n</details>")), ["V-26"])
+check("Y V-26: prerequisite Recall hidden in <details> (also V-21 / V-23 / V-25: drifted Concept Home)",
+      x_crafted(lambda t: t.replace(rblock(xk(X2)), f"<details>\n<summary><strong>Recall</strong></summary>\n\n{rblock(xk(X2))}\n\n</details>")),
+      ["V-21", "V-23", "V-25", "V-26"])
+y_nest = lambda t: t.replace("<details>\n<summary><strong>L3 — Theory</strong></summary>\n\nDurağanlık varsayımı zayıftır.\n\n</details>",  # noqa: E731
+                             "<details>\n<summary><strong>L3 — Theory</strong></summary>\n\n<details>\n<summary><strong>More</strong></summary>\n\n"
+                             "Durağanlık varsayımı zayıftır.\n\n</details>\n\n</details>")
+check("Y V-26: nested <details> beyond details_max_depth", (x_crafted(y_nest), RB.metrics(y_nest(xt), (px.root / GRAPH_F).read_text(encoding="utf-8"), SKILL)["details_max_depth"]),
+      (["V-26"], 2))
+check("Y V-25: Retrieval left open (VIS-07 shape)", x_crafted(lambda t: t.replace(
+      "<details>\n<summary><strong>Retrieval</strong></summary>\n\nHoldout neden seçime girmez?\n\n</details>", "#### Retrieval\n\nHoldout neden seçime girmez?")), ["V-25"])
+vx.f.write_text(y_nest(xt), encoding="utf-8")
+check("Y repair: nested section rewritten from state; == rebuild", (vx.repair()[1], vtext(px) == xt), ("REPAIRED", True))
+vv.f.write_text(y_legacy, encoding="utf-8")
+yl_found, yl_res = [c for c, _ in vv.integrity(y_legacy)], vv.repair()[1]
+yl_after = blocks(vtext(pv))
+check("Y VIS-07 view -> V-25 added; repair rewrites exactly the KN sections with Retrieval; == rebuild",
+      ("V-25" in yl_found and "V-25" not in [c for c, _ in vv.integrity(vt)], yl_res,
+       sorted(k for k in yl_after if yl_after[k] != blocks(y_legacy).get(k)), vtext(pv) == vt),
+      (True, "REPAIRED", sorted(k for k in blocks(vt) if "<summary><strong>Retrieval</strong></summary>" in blocks(vt)[k]), True))
+check("Y template: Retrieval collapsed and marked; L0-L2 open headings",
+      ("<summary><strong>Retrieval</strong></summary>" in tpl, "#### Retrieval" in tpl, "Retrieval (collapsed)" in tpl,
+       all(f"#### {p}\n" in tpl for p in ("L0 — Map", "L1 — Simple Mental Model", "L2 — Mechanism", "Where am I?", "Semantic Relationships", "Recall"))),
+      (True, False, True, True))
 
 report(RESULTS)

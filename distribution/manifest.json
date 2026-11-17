@@ -38,7 +38,7 @@
                   },
                   {
                       "path":  "references/07_INTEGRITY_CHECKS.md",
-                      "sha256":  "d4862ec1d2c9d297b3821711c075a614ddd042e768874e9bf0b853509d074a50"
+                      "sha256":  "92bd6e00cf7aa549aed055033e67e28d9c4a75b8c0bddc7333d138b3f02d4d6d"
                   },
                   {
                       "path":  "references/08_HUMAN_SYNC_STATE.md",
@@ -46,7 +46,7 @@
                   },
                   {
                       "path":  "references/09_KNOWLEDGE_VIEW.md",
-                      "sha256":  "e4cf00d5dbb7ddafdad29566cd12fdf6b9e46244008f182317d6dada2c373680"
+                      "sha256":  "9e6426c6f230d7e404e5e2e34ebe3904e872cffc95f4732502865fe3eaa6fed7"
                   },
                   {
                       "path":  "templates/CONCEPT_HOME_TEMPLATE.md",
@@ -94,7 +94,7 @@
                   },
                   {
                       "path":  "templates/KNOWLEDGE_VIEW_TEMPLATE.md",
-                      "sha256":  "069da06286c31c7bb63e8dbf3a8dfa387225298662c0e5cdc82fa04b18927912"
+                      "sha256":  "fd2700f4bd20d0ca896e0398f18fac602c0b04f77f98fe56b809054f91f5306d"
                   },
                   {
                       "path":  "templates/LEARNING_CONFIG_TEMPLATE.md",

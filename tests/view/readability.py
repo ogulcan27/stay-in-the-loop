@@ -126,6 +126,7 @@ def metrics(view_text, graph_text, skill=DEFAULT_SKILL):
         "lines_collapsed": collapsed,
         "details_blocks": blocks,
         "details_max_depth": depth,
+        "primary_expansions": sum(vm.primary_expansions(sec[k], P.primary) for k in kn),
         "hs_units": sum(k.startswith("HS:") for k in spans),
         "kn_concepts": len(kn),
         "graph_nodes": len(nodes),

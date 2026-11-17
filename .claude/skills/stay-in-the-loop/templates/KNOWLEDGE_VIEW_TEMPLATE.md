@@ -150,7 +150,7 @@ Learning depth: <L1 · L2> · Source: `<event-id>` (`<artifact path>`)
 
 #### Learning Path
 
-L0 → L1 → L2 → L3 (collapsed) → L4 (collapsed) → Boundary → Example → Retrieval → Reference (collapsed)
+L0 → L1 → L2 → L3 (collapsed) → L4 (collapsed) → Boundary → Example → Retrieval (collapsed) → Reference (collapsed)
 
 #### L0 — Map
 
@@ -175,7 +175,10 @@ L0 → L1 → L2 → L3 (collapsed) → L4 (collapsed) → Boundary → Example 
 
 #### Example
 
-#### Retrieval
+<details>
+<summary><strong>Retrieval</strong></summary>
+
+</details>
 
 <details>
 <summary><strong>Reference</strong></summary>

@@ -83,6 +83,7 @@ class Protocol:
         self.rules = {r[0]: r[1] for r in auth[0]}
         self.path = self.rules["view_path"].strip("`")
         self.collapsed = [x.strip() for x in self.rules["collapsed"].split(";")]
+        self.primary = [x.strip() for x in self.rules["primary"].split(";")]
         structure = sm.tables(sm.section(p, "## 3. Structure"))[0]
         self.order = [TICK.findall(r[1])[0] for r in structure]
         self.heading = {TICK.findall(r[1])[0]: TICK.findall(r[2])[0] for r in structure}
@@ -238,6 +239,29 @@ def parts_of(text, level):
 def callout(kind, body):
     """09 §14: a GitHub callout; every body line quoted, blank lines as '>'; text unchanged."""
     return "\n".join([f"> [!{kind}]"] + [f"> {l}" if l else ">" for l in body.splitlines()])
+
+
+def short_part(part):
+    """09 §6.5 short name: 'L2 — Mechanism' -> 'L2'; other parts keep their name."""
+    level = re.match(r"(L\d) —", part)
+    return level.group(1) if level else part
+
+
+def primary_expansions(block, primary):
+    """09 §15: <details> blocks that hold a primary part (summary or #### part heading inside the block)."""
+    count, depth, hit = 0, 0, False
+    for line in block.splitlines():
+        if line == "<details>":
+            hit = hit if depth else False
+            depth += 1
+            continue
+        if line == "</details>":
+            depth -= 1
+            count += depth == 0 and hit
+            continue
+        m = re.fullmatch(r"<summary><strong>(.+)</strong></summary>|#### (.+)", line)
+        hit |= bool(depth and m and short_part(m.group(1) or m.group(2)) in primary)
+    return count
 
 
 def step_id(work_unit_id):
@@ -504,8 +528,7 @@ class View:
         return "#### Recall\n\n" + (callout(self.P.callout["Recall"], body) if "Recall" in self.P.callout else body)
 
     def short_part(self, part):
-        level = re.match(r"(L\d) —", part)
-        return level.group(1) if level else part
+        return short_part(part)
 
     def learning_path(self, shown):
         """09 §6.5: the shown learning parts in section order; collapsed parts marked."""
@@ -1106,6 +1129,8 @@ class View:
                 add("V-24")
             if self.grammar_stale(text, spans):
                 add("V-25")
+            if self.disclosure_stale(text, spans):
+                add("V-26")
         else:
             found = [(c, s) for c, s in found if s == "FAIL"]
         return sorted(set(found))
@@ -1179,6 +1204,18 @@ class View:
                 out.append(key)
         return out
 
+    def disclosure_stale(self, text, spans):
+        """07 V-26: KN sections with a primary part inside <details>; any section nested deeper than details_max_depth (09 §15)."""
+        out, limit = [], self.P.int_rule("details_max_depth")
+        for key, span in spans.items():
+            body, depth, deepest = self.lines_of(text, span), 0, 0
+            for line in body.splitlines():
+                depth += (line == "<details>") - (line == "</details>")
+                deepest = max(deepest, depth)
+            if deepest > limit or (key.startswith("KN:") and primary_expansions(body, self.P.primary)):
+                out.append(key)
+        return out
+
     def broken_link_keys(self, text, spans):
         """07 V-01: sections with an internal link to an anchor the file does not produce (GitHub -1, -2 suffixes included)."""
         made, seen = set(), {}
@@ -1213,7 +1250,7 @@ class View:
                     n = next(x for x in S["nodes"] if x["node_id"] == k[3:])
                     if spans[k][2].get("depth") != ";".join(depth_list(n["available_depth"])) or f"### {n['node_id']} — {n['canonical_name']}\n" not in cur + "\n":
                         keys.append(k)
-        keys += self.nav_stale(text, spans, S) + self.home_stale(text, spans, S) + self.recall_stale(text, spans, S) + self.grammar_stale(text, spans)
+        keys += self.nav_stale(text, spans, S) + self.home_stale(text, spans, S) + self.recall_stale(text, spans, S) + self.grammar_stale(text, spans) + self.disclosure_stale(text, spans)
         keys += self.broken_link_keys(text, spans) + ["JOURNEY"] * self.journey_stale(text, spans, S)
         self.update(keys + ["MAP", "INDEX"], rd)
         return found, "REPAIRED"
