@@ -438,7 +438,7 @@ check("J lesson text once per concept section", all(b.count("Skor yanlış iyi g
 check("J semantic relationships link to sections", "- **Hidden-State Models** — USES → [Duration Model](#kn-00000040)" in jb["KN:KN-00000020"], True)
 
 # Test K - 07 §V integrity, candidate safety, write failure (spec 33, 34)
-check("K 26 V checks", sorted(P.checks), [f"V-{i:02d}" for i in range(1, 27)])
+check("K 27 V checks", sorted(P.checks), [f"V-{i:02d}" for i in range(1, 28)])
 check("K structural / misleading checks FAIL", sorted(c for c, s in P.checks.items() if s == "FAIL"),
       ["V-02", "V-03", "V-04", "V-05", "V-09", "V-10", "V-12", "V-13"])
 base = vtext(pd)
@@ -467,8 +467,8 @@ check("K V-06 STALE shown as Current", "V-06" in crafted(lambda t: t.replace(f"{
                                                                               blocks(t)[hs(1)].splitlines()[4].replace("Current", "Needs refresh"))), True)
 check("K V-09 unclosed fence", "V-09" in crafted(lambda t: t.replace("#### L1 — Simple Mental Model\n", "#### L1 — Simple Mental Model\n```text\n")), True)
 check("K V-10 level-2 heading inside a section", "V-10" in crafted(lambda t: t.replace("#### L1 — Simple Mental Model", "## L1 — Simple Mental Model")), True)
-check("K V-11 L4 heading on a Light (L1;L2) concept (an open L4 is also outside its DETAILS primitive: V-25)",
-      [c for c, _ in ve.integrity(vtext(pe).replace("#### L2 — Mechanism", "#### L4 — Formalism"))], ["V-11", "V-25"])
+check("K V-11 L4 heading on a Light (L1;L2) concept (an open L4 is also outside its DETAILS primitive: V-25; Learning Path still names L2: V-27)",
+      [c for c, _ in ve.integrity(vtext(pe).replace("#### L2 — Mechanism", "#### L4 — Formalism"))], ["V-11", "V-25", "V-27"])
 check("K V-14 map node not in graph", "V-14" in crafted(lambda t: t.replace("KN_0000000b[", "KN_0000beef[")), True)
 check("K clean view -> no finding", vd.integrity(base), [])
 # misleading presentation is repaired section by section
@@ -854,7 +854,8 @@ def r_crafted(fn):
 check("R broken anchor in a concept -> V-01", "V-01" in r_crafted(lambda t: t.replace("Next: [Backward Recursion](#kn-000000b2)", "Next: [Backward Recursion](#kn-0000beef)")),
       True)
 check("R Project Home anchor gone -> V-01", "V-01" in r_crafted(lambda t: t.replace("## Project Home", "## Home")), True)
-check("R duplicate navigation anchor -> V-16 only", r_crafted(lambda t: t.replace("#### L1 — Simple Mental Model", "#### Knowledge Map", 1)), ["V-16"])
+R_DUP = ("#### L1 — Simple Mental Model\n\n", "#### L1 — Simple Mental Model\n\n##### Knowledge Map\n\n")  # source heading collides with a navigation anchor
+check("R duplicate navigation anchor -> V-16 only", r_crafted(lambda t: t.replace(*R_DUP, 1)), ["V-16"])
 check("R wrong parent link -> V-17", r_crafted(lambda t: t.replace("Parent: [Estimation](#kn-000000a1)", "Parent: [Smoothing](#kn-000000b3)", 1)), ["V-17"])
 check("R invalid previous / next -> V-17", r_crafted(lambda t: t.replace("Next: [Backward Recursion](#kn-000000b2)", "Next: [Smoothing](#kn-000000b3)")), ["V-17"])
 check("R missing Project Home back link -> V-17", r_crafted(lambda t: t.replace("\n\n[↑ Project Home](#project-home)\n<!-- SITL:DEBT:END", "\n<!-- SITL:DEBT:END")),
@@ -864,7 +865,7 @@ wrong = blocks(vtext(pr))
 found, res = vr.repair()
 check("R V-17 repair rewrites only the wrong section", (found, res, vtext(pr) == base_r, [k for k in wrong if wrong[k] != blocks(base_r)[k]]),
       ([("V-17", "WARNING")], "REPAIRED", True, ["KN:KN-000000b1"]))
-rf.write_text(base_r.replace("#### L1 — Simple Mental Model", "#### Knowledge Map", 1), encoding="utf-8")
+rf.write_text(base_r.replace(*R_DUP, 1), encoding="utf-8")
 check("R V-16 not repaired by the view", vr.repair()[1], "NOTHING")
 old = base_r.replace("[Project Home](#project-home) → [Knowledge Map](#knowledge-map) → ", "").replace("\n\n[↑ Project Home](#project-home)", "")
 old = re.sub(r"\n\n(?:Parent|Reading order) .*(?=\n)|\n\nParent: .*(?=\n)", "", old)
@@ -1597,9 +1598,9 @@ legacy = base_v.replace(kn(VA), old_a)
 vv.f.write_text(legacy, encoding="utf-8")
 lg_found = [c for c, _ in vv.integrity(vtext(pv))]
 lg_res = vv.repair()[1]
-check("V VIS-04 format concept -> V-21 only; repair rewrites that section; == rebuild; ULA body kept",
+check("V VIS-04 format concept -> V-21 + V-27 (no Learning Path); repair rewrites that section; == rebuild; ULA body kept",
       (lg_found, lg_res, vtext(pv) == base_v, old_a.split("#### L0 — Map", 1)[1].split("\n\n#### Related Concepts")[0]
-       == kn(VA).split("#### L0 — Map", 1)[1].split(f"\n<!-- SITL:KN:{VA}:END")[0]), (["V-21"], "REPAIRED", True, True))
+       == kn(VA).split("#### L0 — Map", 1)[1].split(f"\n<!-- SITL:KN:{VA}:END")[0]), (["V-21", "V-27"], "REPAIRED", True, True))
 # missing / empty short_meaning: no line, nothing invented, V-22 reported, not repaired
 pm5 = project("pv_missing", steps=1)
 vm5 = View(P, pm5.root)
@@ -1921,9 +1922,9 @@ vx.f.write_text(x_legacy, encoding="utf-8")
 xl_found = [c for c, _ in vx.integrity(vtext(px))]
 xl_res = vx.repair()[1]
 xl_after = blocks(vtext(px))
-check("X VIS-06 format view -> V-23 + V-25; repair rewrites exactly the Boundary and Recall sections; == rebuild",
+check("X VIS-06 format view -> V-23 + V-25 + V-27 (Boundary (collapsed) path); repair rewrites exactly the Boundary and Recall sections; == rebuild",
       (xl_found, xl_res, sorted(k for k in xl_after if xl_after[k] != blocks(x_legacy).get(k)), vtext(px) == xt),
-      (["V-23", "V-25"], "REPAIRED", [f"KN:{X1}", f"KN:{X2}"], True))
+      (["V-23", "V-25", "V-27"], "REPAIRED", [f"KN:{X1}", f"KN:{X2}"], True))
 check("X template: IMPORTANT / NOTE / WARNING callouts at their parts; Boundary no longer collapsed",
       ("#### Five things to remember\n\n> [!IMPORTANT]\n" in tpl, "#### Recall\n\n> [!NOTE]\n" in tpl, "#### Boundary\n\n> [!WARNING]\n" in tpl,
        "<summary><strong>Boundary</strong></summary>" in tpl), (True, True, True, False))
@@ -1986,5 +1987,102 @@ check("Y template: Retrieval collapsed and marked; L0-L2 open headings",
       ("<summary><strong>Retrieval</strong></summary>" in tpl, "#### Retrieval" in tpl, "Retrieval (collapsed)" in tpl,
        all(f"#### {p}\n" in tpl for p in ("L0 — Map", "L1 — Simple Mental Model", "L2 — Mechanism", "Where am I?", "Semantic Relationships", "Recall"))),
       (True, False, True, True))
+
+# Test Z - readability and navigation integrity: card corruptions caught with their location (07 §V, V-27; CLS-10 / VIS-09)
+Z0, Z1, Z2, Z3, Z4, Z5 = (f"KN-0000a90{i}" for i in range(6))
+Z_NODES = [node(Z0, "Project Root", "ROOT"),
+           node(Z1, "Data Pipeline", "CONCEPT", Z0, "L1; L2; L3", arts=LIGHT_X, events="LE-LP-20261112-01-01", meaning="Ham veriyi skora taşıyan sıra."),
+           node(Z2, "Model Family", "CONCEPT", Z0, "L1; L2", arts=LIGHT_A, events="LE-LP-20261028-01-01", meaning="Aday modeller.")] + \
+          [node(i, n, "CONCEPT", Z2, "L1", arts=LIGHT_A, events="LE-LP-20261028-01-01", meaning=f"{n} anlamı.") for i, n in ((Z3, "Child A"), (Z4, "Child B"), (Z5, "Child C"))]
+Z_EDGES = [wedge("KE-0001", Z2, "USES", Z1, "Model ailesi pipeline çıktısını kullanır."), wedge("KE-0002", Z3, "PART_OF", Z1, "A pipeline'ın da parçasıdır."),
+           wedge("KE-0003", Z1, "NEXT", Z2, "Sonra modeller.")]
+pz = project("pz", steps=2)
+vz = View(P, pz.root)
+sync(pz, vz)
+light(pz, LIGHT_A, "x", L_LIGHT)
+light(pz, LIGHT_X, "Pipeline", X_LIGHT)
+write_graph(pz, 1, Z_NODES, Z_EDGES)
+vz.on_map_sync(None)
+zt = vtext(pz)
+zb = blocks(zt)
+zS = vz.sources()
+k1, k2, k3 = f"KN:{Z1}", f"KN:{Z2}", f"KN:{Z3}"
+Z_RUNS = []
+
+
+def zd(fn, S=None):
+    """07 §V findings of a corrupted copy of the Z view: [(check_id, where)]; the file on disk is never changed."""
+    out = [(c, w) for c, _, w in vz.diagnose(fn(zt), S)]
+    Z_RUNS.append(out)
+    return out
+
+
+def z_graph(**parents):
+    """Sources with changed parent_id values (graph corruption without writing the graph)."""
+    return dict(zS, nodes=[dict(n, parent_id=parents.get(n["node_id"], n["parent_id"])) for n in zS["nodes"]])
+
+
+z_path = lambda k: re.search(r"^#### Learning Path\n\n(.+)$", zb[k], re.M).group(1)  # noqa: E731
+z_used = ">   - **Used here:** Model ailesi pipeline çıktısını kullanır. (USES)"
+z_rel = "- **Model Family** — USES → [Data Pipeline](#kn-0000a901)"
+z_l2 = x_part(zb[k1], "#### L2 — Mechanism")
+z_jline = [l for l in zb["JOURNEY"].splitlines() if l.startswith("- [")][0]
+check("Z fixture: local map, Also part of, Recall, reading order and a two-unit journey; view clean; == rebuild",
+      ("```mermaid" in zb[k2], "Also part of:" in zb[k3], "#### Recall" in zb[k2], "Reading order" in zb[k1], len(re.findall(r"^- \[", zb["JOURNEY"], re.M)),
+       vz.diagnose(zt), zt == vz.rebuild()), (True, True, True, True, 2, [], True))
+# card test plan: every listed corruption caught, located at the broken concept / link / section
+z_del = zd(lambda t: t.replace(f'<a id="{Z1.lower()}"></a>\n', ""))
+check("Z delete anchor: V-04 FAIL at the concept, V-01 at every section linking to it",
+      (z_del[0], sorted({w.split(" -> ")[0] for c, w in z_del if c == "V-01"}), {w.split(" -> ")[1] for c, w in z_del if c == "V-01"}),
+      (("V-01", f"INDEX -> #{Z1.lower()}"), ["INDEX", k2, k3, "MAP"], {f"#{Z1.lower()}"}))
+check("Z delete anchor: V-04 located", ("V-04", k1) in z_del, True)
+check("Z break breadcrumb -> V-17 at that concept",
+      zd(lambda t: t.replace("→ [Model Family](#kn-0000a902) → **Child A**", "→ [Child B](#kn-0000a904) → **Child A**")), [("V-17", k3)])
+check("Z swap dependency type -> V-21 at that concept", zd(lambda t: t.replace(z_rel, z_rel.replace("USES", "DEPENDS_ON"))), [("V-21", k2)])
+check("Z duplicate edge (Concept Home) -> V-21 at that concept", zd(lambda t: t.replace(z_rel, f"{z_rel}\n{z_rel}")), [("V-21", k2)])
+z_mrel = "- [Model Family](#kn-0000a902) — USES → [Data Pipeline](#kn-0000a901)\n"
+check("Z duplicate edge (Knowledge Map) -> V-20 at MAP", zd(lambda t: t.replace(z_mrel, z_mrel * 2)), [("V-20", "MAP")])
+check("Z Recall Capsule points to the wrong concept -> V-23 at that concept",
+      zd(lambda t: t.replace("> - [Data Pipeline](#kn-0000a901) — Ham", "> - [Child A](#kn-0000a903) — Ham")), [("V-23", k2)])
+check("Z unsupported recall statement -> V-23 at that concept",
+      zd(lambda t: t.replace(z_used, f"{z_used}\n>   - **Used here:** Model ailesi pipeline'ı yeniden yazar. (USES)")), [("V-23", k2)])
+check("Z required L2 hidden in <details> -> V-26 at that concept",
+      zd(lambda t: t.replace(f"#### L2 — Mechanism\n\n{z_l2}", f"<details>\n<summary><strong>L2 — Mechanism</strong></summary>\n\n{z_l2}\n\n</details>")), [("V-26", k1)])
+check("Z orphan concept (parent missing in the graph) -> V-19 names the node and its state",
+      [x for x in zd(lambda t: t, z_graph(**{Z4: "KN-0000dead"})) if x[0] == "V-19"], [("V-19", f"{Z4} (MISSING_PARENT)")])
+check("Z Human Sync unit removed from the Journey -> V-18 at JOURNEY", zd(lambda t: t.replace(z_jline + "\n", "")), [("V-18", "JOURNEY")])
+check("Z navigation cycle rule: hierarchy cycle -> V-19 names the cycle nodes and the children whose chain enters it",
+      [x for x in zd(lambda t: t, z_graph(**{Z2: Z3})) if x[0] == "V-19"],
+      [("V-19", f"{Z2} (CYCLE)"), ("V-19", f"{Z3} (CYCLE)"), ("V-19", f"{Z4} (CYCLE)"), ("V-19", f"{Z5} (CYCLE)")])
+# V-27: graph-derived Concept Home structure and Learning Path
+check("Z V-27 local map child removed", zd(lambda t: t.replace(f'    KN_0000a902 --> KN_0000a904["Child B ({Z4})"]\n', "")), [("V-27", k2)])
+check("Z V-27 local map relation swapped", zd(lambda t: t.replace("KN_0000a902 -- USES --> KN_0000a901[", "KN_0000a902 -- DEPENDS_ON --> KN_0000a901[")),
+      [("V-27", k2)])
+check("Z V-27 Also part of removed", zd(lambda t: t.replace("Also part of: [Data Pipeline](#kn-0000a901)\n\n", "")), [("V-27", k3)])
+check("Z V-27 Learning depth level dropped", zd(lambda t: t.replace("Learning depth: L1 · L2 · L3 · Source", "Learning depth: L1 · L2 · Source")), [("V-27", k1)])
+check("Z V-27 Learning Path drops a shown part (L2)", zd(lambda t: t.replace(z_path(k1), z_path(k1).replace(" → L2", ""))), [("V-27", k1)])
+check("Z V-27 Learning Path loses a collapsed mark", zd(lambda t: t.replace(z_path(k1), z_path(k1).replace("L3 (collapsed)", "L3"))), [("V-27", k1)])
+check("Z V-27 Learning Path names a part the section does not show",
+      zd(lambda t: t.replace(z_path(k2), z_path(k2) + " → L3 (collapsed)")), [("V-27", k2)])
+# failure diagnostics: link, anchor, marker line, duplicate section
+check("Z broken link located by section and target",
+      zd(lambda t: t.replace("Next: [Model Family](#kn-0000a902)", "Next: [Model Family](#kn-0000beef)")), [("V-01", f"{k1} -> #kn-0000beef"), ("V-17", k1)])
+check("Z duplicate navigation anchor located by anchor",
+      zd(lambda t: t.replace("#### L1 — Simple Mental Model\n\n", "#### L1 — Simple Mental Model\n\n##### Knowledge Map\n\n", 1)), [("V-16", "#knowledge-map")])
+z_end = zt.splitlines().index(f"<!-- SITL:KN:{Z2}:START depth=L1;L2 -->") + 1
+check("Z broken marker located by section and line", zd(lambda t: t.replace(f"<!-- SITL:KN:{Z2}:END -->\n", "")), [("V-03", f"{k2} line {z_end}")])
+check("Z duplicate section located by key", zd(lambda t: t.replace(zb[k3], zb[k3] + "\n\n" + zb[k3])), [("V-02", k3)])
+check("Z every corruption finding carries a location", [x for run in Z_RUNS for x in run if x[1] in ("", "-")], [])
+check("Z integrity() keeps its contract: the (check_id, severity) view of diagnose()",
+      vz.integrity(zt.replace(z_rel, z_rel.replace("USES", "DEPENDS_ON"))), [("V-21", "WARNING")])
+# repair: only the located sections; == rebuild
+vz.f.write_text(zt.replace("Also part of: [Data Pipeline](#kn-0000a901)\n\n", "").replace(f'    KN_0000a902 --> KN_0000a904["Child B ({Z4})"]\n', ""),
+                encoding="utf-8")
+z_pre = blocks(vtext(pz))
+z_found, z_res = vz.repair()
+check("Z V-27 repair rewrites exactly the located sections; == rebuild",
+      (z_found, z_res, sorted(k for k, b in blocks(vtext(pz)).items() if b != z_pre[k]), vtext(pz) == zt),
+      ([("V-27", "WARNING")], "REPAIRED", [k2, k3], True))
+check("Z authoritative sources unchanged by every check and repair", vz.sources() == zS, True)
 
 report(RESULTS)

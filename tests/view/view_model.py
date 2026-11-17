@@ -295,7 +295,11 @@ class Reader:
 
 
 class ViewBlocked(Exception):
-    pass
+    """str() is the check id or error; `where` is the 07 §V finding location."""
+
+    def __init__(self, code, where="-"):
+        super().__init__(code)
+        self.where = where
 
 
 # --- view engine ----------------------------------------------------------------------------
@@ -836,22 +840,22 @@ class View:
         """{key: (start_line, end_line, attrs)}; raises ViewBlocked('V-03'/'V-02') on structural errors."""
         ms, unknown = cls.markers(text)
         if unknown:
-            raise ViewBlocked("V-03")
+            raise ViewBlocked("V-03", f"line {unknown[0] + 1}")
         out, open_ = {}, None
         for key, kind, attrs, i in ms:
             if kind == "START":
                 if open_:
-                    raise ViewBlocked("V-03")
+                    raise ViewBlocked("V-03", f"{open_[0]} line {open_[1] + 1}")
                 if key in out:
-                    raise ViewBlocked("V-02")
+                    raise ViewBlocked("V-02", key)
                 open_ = (key, i, attrs)
             else:
                 if not open_ or open_[0] != key:
-                    raise ViewBlocked("V-03")
+                    raise ViewBlocked("V-03", f"{key} line {i + 1}")
                 out[key] = (open_[1], i, open_[2])
                 open_ = None
         if open_:
-            raise ViewBlocked("V-03")
+            raise ViewBlocked("V-03", f"{open_[0]} line {open_[1] + 1}")
         return out
 
     @staticmethod
@@ -1026,42 +1030,46 @@ class View:
     # --- 07 §V ---
     def integrity(self, text, S=None, structural_only=False):
         """Return sorted [(check_id, severity)] for the given view text (None = file missing)."""
+        return sorted({(c, s) for c, s, _ in self.diagnose(text, S, structural_only)})
+
+    def diagnose(self, text, S=None, structural_only=False):
+        """07 §V findings with their location: sorted [(check_id, severity, where)]."""
         S = S or self.sources()
         sev = self.P.checks
         found = []
 
-        def add(cid):
+        def add(cid, where):
             if cid in sev:
-                found.append((cid, sev[cid]))
+                found.append((cid, sev[cid], where))
 
         if text is None:
             if self.has_content(S):
-                add("V-08")
+                add("V-08", "file")
             return sorted(set(found))
         head = next((HEAD_MARK.match(l) for l in text.splitlines() if HEAD_MARK.match(l)), None)
         if not head:
-            add("V-12")
+            add("V-12", "SITL:VIEW")
             return sorted(set(found))
         if head.group(1) != S["project_id"]:
-            add("V-05")
+            add("V-05", "SITL:VIEW")
         try:
             spans = self.spans(text)
         except ViewBlocked as e:
-            add(str(e))
+            add(str(e), e.where)
             return sorted(set(found))
         rows = {r["record_id"]: r for r in S["rows"] if r["record_id"] != "-"}
         nodes = {n["node_id"]: n for n in S["nodes"]}
         made = anchors_of(text)
         nav = set(self.P.anchor.values()) | {s[3:].lower() for s in spans if s[:3] in ("HS:", "KN:")}
-        if any(made.count(a) > 1 for a in nav):
-            add("V-16")
+        for a in sorted(a for a in nav if made.count(a) > 1):
+            add("V-16", f"#{a}")
         for key in self.nav_stale(text, spans, S):
-            add("V-17")
+            add("V-17", key)
         for key, span in spans.items():
             body = self.lines_of(text, span)
             kind, kid = (key.split(":") + [None])[:2]
             if body.count("```") % 2 or body.count("<details>") != body.count("</details>"):
-                add("V-09")
+                add("V-09", key)
             heads, fence = [], False
             for line in body.splitlines():
                 if line.startswith("```"):
@@ -1072,67 +1080,72 @@ class View:
             own = 3 if kind in ("HS", "KN") else 2
             top = [h for h in heads if h[0] <= 3]
             if len(top) != 1 or top[0][0] != own:
-                add("V-10")
+                add("V-10", key)
             if kind in ("HS", "KN"):
                 a = re.search(r'<a id="([^"]+)"></a>', body)
                 if kind == "KN":
                     title = top[0][1] if top else ""
                     if not a or a.group(1) != kid.lower() or not title.startswith(f"{kid} — ") or kid not in nodes:
-                        add("V-04")
+                        add("V-04", key)
                         continue
                     n = nodes[kid]
                     if title != f"{kid} — {n['canonical_name']}" or span[2].get("depth", "") != ";".join(depth_list(n["available_depth"])):
-                        add("V-07")
+                        add("V-07", key)
                     levels = set(re.findall(r"^(?:#### |<summary><strong>)(L[1-4]) —", body, re.M))
                     if n["node_status"] != "ACTIVE" or not depth_list(n["available_depth"]) or levels - set(depth_list(n["available_depth"])):
-                        add("V-11")
+                        add("V-11", key)
                 else:
                     r = rows.get(kid)
                     if r is None:
-                        add("V-05")
+                        add("V-05", key)
                         continue
                     if r["sync_status"] not in self.P.status_line:
-                        add("V-11")
+                        add("V-11", key)
                         continue
                     shown = re.search(r"^\*\*Status:\*\* (.+)$", body, re.M)
                     if not shown or shown.group(1) != self.P.status_line[r["sync_status"]]:
-                        add("V-06")
+                        add("V-06", key)
                     if span[2].get("v") != r["record_version"]:
-                        add("V-07")
+                        add("V-07", key)
                     human = body.split(shown.group(0), 1)[1].split("<details>", 1)[0] if shown else ""
                     if undefined_symbols(human):
-                        add("V-15")
+                        add("V-15", key)
             if kind == "MAP":
                 for nid, lab in re.findall(r'(KN_[0-9a-f]{8})\["([^"]*)"\]', body):
                     n = nodes.get(nid.replace("_", "-"))
                     if not n or len(lab.split(" (KN-")[0].replace(" (DEBT)", "")) > self.P.int_rule("map_label_max_chars"):
-                        add("V-14")
-        if not structural_only:
-            if self.broken_link_keys(text, spans):
-                add("V-01")
-            want ={f"HS:{r['record_id']}" for r in self.hs_rows(S)} | {f"KN:{n['node_id']}" for n in self.kn_nodes(S)}
-            if want - set(spans) or (self.P.debt_structural and "DEBT" not in spans) or (self.P.journey_structural and "JOURNEY" not in spans):
-                add("V-08")
-            if self.journey_stale(text, spans, S):
-                add("V-18")
-            if self.orphans(S):
-                add("V-19")
-            if self.map_stale(text, spans, S):
-                add("V-20")
-            if self.home_stale(text, spans, S):
-                add("V-21")
-            if [n for n in self.kn_nodes(S) if f"KN:{n['node_id']}" in spans and not self.orientation(n)]:
-                add("V-22")
-            if self.recall_stale(text, spans, S):
-                add("V-23")
-            if [n for n in self.kn_nodes(S) if f"KN:{n['node_id']}" in spans and self.recall_capsules(S, n)[1]]:
-                add("V-24")
-            if self.grammar_stale(text, spans):
-                add("V-25")
-            if self.disclosure_stale(text, spans):
-                add("V-26")
-        else:
-            found = [(c, s) for c, s in found if s == "FAIL"]
+                        add("V-14", key)
+        if structural_only:
+            return sorted({f for f in found if f[1] == "FAIL"})
+        for key, target in self.broken_links(text, spans):
+            add("V-01", f"{key} -> #{target}")
+        want = [f"HS:{r['record_id']}" for r in self.hs_rows(S)] + [f"KN:{n['node_id']}" for n in self.kn_nodes(S)]
+        want += ["DEBT"] * self.P.debt_structural + ["JOURNEY"] * self.P.journey_structural
+        for key in want:
+            if key not in spans:
+                add("V-08", key)
+        if self.journey_stale(text, spans, S):
+            add("V-18", "JOURNEY")
+        for nid, state in self.orphans(S).items():
+            add("V-19", f"{nid} ({state})")
+        if self.map_stale(text, spans, S):
+            add("V-20", "MAP")
+        for key in self.home_stale(text, spans, S):
+            add("V-21", key)
+        kn_shown = [n for n in self.kn_nodes(S) if f"KN:{n['node_id']}" in spans]
+        for n in kn_shown:
+            if not self.orientation(n):
+                add("V-22", f"KN:{n['node_id']}")
+            for t, _ in self.recall_capsules(S, n)[1]:
+                add("V-24", f"KN:{n['node_id']} -> {t['node_id']}")
+        for key in self.recall_stale(text, spans, S):
+            add("V-23", key)
+        for key in self.grammar_stale(text, spans):
+            add("V-25", key)
+        for key in self.disclosure_stale(text, spans):
+            add("V-26", key)
+        for key in self.structure_stale(text, spans, S):
+            add("V-27", key)
         return sorted(set(found))
 
     def nav_stale(self, text, spans, S):
@@ -1216,13 +1229,40 @@ class View:
                 out.append(key)
         return out
 
-    def broken_link_keys(self, text, spans):
-        """07 V-01: sections with an internal link to an anchor the file does not produce (GitHub -1, -2 suffixes included)."""
+    def broken_links(self, text, spans):
+        """07 V-01: [(section, target)] for internal links to an anchor the file does not produce (GitHub -1, -2 suffixes included)."""
         made, seen = set(), {}
         for a in anchors_of(text):
             made.add(f"{a}-{seen[a]}" if a in seen else a)
             seen[a] = seen.get(a, 0) + 1
-        return [k for k, s in spans.items() if set(link_targets(self.lines_of(text, s))) - made]
+        return [(k, t) for k, s in spans.items() for t in dict.fromkeys(link_targets(self.lines_of(text, s))) if t not in made]
+
+    def broken_link_keys(self, text, spans):
+        return list(dict.fromkeys(k for k, _ in self.broken_links(text, spans)))
+
+    def structure_stale(self, text, spans, S):
+        """07 V-27: KN sections whose Also part of / Learning depth / Local Map lines differ from the graph render,
+        or whose Learning Path differs from the learning parts the section shows (09 §6.3, §6.5, §7.2)."""
+        nodes, out = {n["node_id"]: n for n in S["nodes"]}, []
+        for key, span in spans.items():
+            n = nodes.get(key[3:]) if key.startswith("KN:") else None
+            if not n:
+                continue
+            body = self.lines_of(text, span)
+            head, _, tail = body.partition("\n\n#### Semantic Relationships\n")
+            also = [nodes[e["target_node_id"]] for e in S["edges"]
+                    if e["source_node_id"] == n["node_id"] and e["relation_type"] == "PART_OF" and e["target_node_id"] in nodes]
+            depth = f"Learning depth: {' · '.join(depth_list(n['available_depth']))} · Source: `{n['source_event_ids'].replace(' ', '')}`"
+            lm = self.local_map(S, n)
+            ok = [l for l in head.splitlines() if l.startswith("Also part of:")] == (["Also part of: " + ", ".join(self.link(S, x) for x in also)] if also else [])
+            ok &= [l.split(" (`", 1)[0] for l in head.splitlines() if l.startswith("Learning depth:")] == [depth]
+            ok &= re.findall(r"^```mermaid\n.*?^```$", head, re.M | re.S) == ([lm] if lm else [])
+            parts = tail.partition("\n#### Learning Path\n\n")[2]
+            shown = [p for p in re.findall(r"^(?:#### |<summary><strong>)(.+?)(?:</strong></summary>)?$", parts, re.M) if p in self.P.artifact_map]
+            ok &= parts.split("\n", 1)[0] == self.learning_path(shown).split("\n\n", 1)[1]
+            if not ok:
+                out.append(key)
+        return out
 
     def repair(self, rd=None):
         """07 §L.3 derived repair for §V WARNINGs: only the sections the checks point to."""
@@ -1251,7 +1291,7 @@ class View:
                     if spans[k][2].get("depth") != ";".join(depth_list(n["available_depth"])) or f"### {n['node_id']} — {n['canonical_name']}\n" not in cur + "\n":
                         keys.append(k)
         keys += self.nav_stale(text, spans, S) + self.home_stale(text, spans, S) + self.recall_stale(text, spans, S) + self.grammar_stale(text, spans) + self.disclosure_stale(text, spans)
-        keys += self.broken_link_keys(text, spans) + ["JOURNEY"] * self.journey_stale(text, spans, S)
+        keys += self.structure_stale(text, spans, S) + self.broken_link_keys(text, spans) + ["JOURNEY"] * self.journey_stale(text, spans, S)
         self.update(keys + ["MAP", "INDEX"], rd)
         return found, "REPAIRED"
 

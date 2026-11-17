@@ -239,6 +239,8 @@ MUTATIONS = [
      [(R09, r"^\| `primary_expansions` \|.*\n", "")], ["view"]),
     ("VIS-M68", "template Retrieval back open",
      [("templates/KNOWLEDGE_VIEW_TEMPLATE.md", r"^<details>\n<summary><strong>Retrieval</strong></summary>\n\n</details>\n", "#### Retrieval\n")], ["view"]),
+    ("VIS-M69", "07 V-27 removed (drifted Learning Path / local map / Also part of / Learning depth accepted)", [(R07, r"^\| V-27 \|.*\n", "")], ["view"]),
+    ("VIS-M70", "07 V-04 removed (deleted concept anchor accepted)", [(R07, r"^\| V-04 \|.*\n", "")], ["view"]),
 ]
 
 

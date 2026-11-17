@@ -431,6 +431,7 @@ L0 → L1 → L2 → L3 (collapsed) → Example → Retrieval → Reference (col
 - Level part'ı kısa adıyla (`L0`–`L4`), diğer part'lar adıyla yazılır. `collapsed` part'ı ` (collapsed)` alır.
 - Satır içerik taşımaz. Part metni altta, artifact'ten kopyalandığı gibi durur (§6.2).
 - Collapse yalnız sunumdur. Artifact ve L0–L4 anlamı değişmez.
+- Satır section'ın gösterdiği part'lardan farklıysa `07` V-27 raporlar. Repair section'ı yeniden üretir.
 
 ### 6.6 Recall
 
@@ -504,6 +505,7 @@ Map'in altındaki satırlar, bu sırayla. Boş satır yazılmaz:
 - Yalnız primary child sayısı ≥ `local_map_min_children` ise üretilir. Local map'i olmayan node'un çizilmeyen child'ları `**Deeper concepts:**` satırında durur (§7.1).
 - Node'lar: section node'u + primary child'lar + node'un `PART_OF` ve `NEXT` dışındaki relation hedefleri.
 - Edge'ler: child (`-->`) ve relation (`-- RELATION -->`). Label kuralı §7.1 ile aynıdır.
+- Graph render'ından farklı local map, `Also part of` veya `Learning depth` satırı `07` V-27 ile raporlanır.
 
 ```text
 GLOBAL MAP (depth 1–2) → KN section → LOCAL MAP (children) → child KN section
